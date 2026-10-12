@@ -20,6 +20,7 @@ public class WinterClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		WinterHud.register();
 		BulletTracers.registerWorldRender();
 		LuckyChestEsp.registerWorldRender();
 		MobEsp.registerWorldRender();

@@ -7,6 +7,7 @@ import dev.luxnet.winter.client.visuals.LuckyChestEsp;
 import dev.luxnet.winter.client.visuals.MobEsp;
 import dev.luxnet.winter.client.visuals.TeamEsp;
 import dev.luxnet.winter.client.visuals.PowerupEsp;
+import dev.luxnet.winter.client.WinterHud;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -32,7 +33,7 @@ public class WinterScreen extends Screen {
 	private int expandedModule = -1;
 	private Category selectedCategory = Category.DEBUG;
 
-	private enum Category { DEBUG, VISUALS }
+	private enum Category { DEBUG, VISUALS, HUD }
 
 	public WinterScreen() {
 		super(Component.literal("Winter"));
@@ -62,6 +63,7 @@ public class WinterScreen extends Screen {
 		int sidebarRight = panelX + SIDEBAR_WIDTH;
 		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY, sidebarRight, "Debug", Category.DEBUG);
 		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 30, sidebarRight, "Visuals", Category.VISUALS);
+		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 60, sidebarRight, "HUD", Category.HUD);
 
 		int dividerX = panelX + SIDEBAR_WIDTH + 4;
 		graphics.fill(dividerX, panelY + HEADER_HEIGHT + 10, dividerX + 1, panelY + panelHeight - 12, 0x665E6672);
@@ -72,8 +74,10 @@ public class WinterScreen extends Screen {
 		graphics.enableScissor(contentX, contentTop, contentRight, contentBottom);
 		if (selectedCategory == Category.DEBUG) {
 			renderDebug(graphics, mouseX, mouseY, contentX, contentTop, contentBottom, contentRight);
-		} else {
+		} else if (selectedCategory == Category.VISUALS) {
 			renderVisuals(graphics, contentX, contentTop, contentRight);
+		} else {
+			renderHud(graphics, contentX, contentTop, contentRight);
 		}
 		graphics.disableScissor();
 		super.render(graphics, mouseX, mouseY, delta);
@@ -158,6 +162,12 @@ public class WinterScreen extends Screen {
 				PowerupEsp.getRenderDistance() + " blocks");
 			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(PowerupEsp.getRenderDistance()));
 		}
+	}
+
+	private void renderHud(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
+		boolean enabled = WinterHud.isWatermarkEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop,
+			"Watermark: " + (enabled ? "ON" : "OFF"), enabled);
 	}
 
 	private void drawSettingLabel(GuiGraphics graphics, int left, int right, int y, String name, String value) {
@@ -253,6 +263,11 @@ public class WinterScreen extends Screen {
 				scrollOffset = 0;
 				return true;
 			}
+			if (event.y() >= sidebarY + 60 && event.y() < sidebarY + 84) {
+				selectedCategory = Category.HUD;
+				scrollOffset = 0;
+				return true;
+			}
 		}
 
 		int left = contentLeft();
@@ -266,6 +281,11 @@ public class WinterScreen extends Screen {
 				}
 				if (event.y() >= top + 26 && event.y() <= top + 47) {
 					MobDebugModule.toggle();
+					return true;
+				}
+			} else if (selectedCategory == Category.HUD && event.button() == 0) {
+				if (event.y() >= top && event.y() <= top + 21) {
+					WinterHud.toggleWatermark();
 					return true;
 				}
 			} else if (selectedCategory == Category.VISUALS) {
