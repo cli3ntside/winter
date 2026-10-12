@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "winter",
+	"version": "${version}",
+	"name": "Winter",
+	"description": "A utility mod for Hypixel Zombies.",
+	"authors": [
+		"cli3ntside"
+	],
+	"contact": {
+		"homepage": "https://hypixel.net/"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/winter/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.luxnet.winter.Winter"
+		],
+		"client": [
+			"dev.luxnet.winter.client.WinterClient"
+		]
+	},
+	"mixins": [
+		"winter.mixins.json",
+		{
+			"config": "winter.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
