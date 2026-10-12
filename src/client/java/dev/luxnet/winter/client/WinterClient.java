@@ -1,6 +1,7 @@
 package dev.luxnet.winter.client;
 
 import dev.luxnet.winter.client.debug.ShotDebugModule;
+import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -25,6 +26,8 @@ public class WinterClient implements ClientModInitializer {
 		));
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			MobDebugModule.tick(client);
+			BulletTracers.tick(client);
 			if (client.player != null) {
 				ShotDebugModule.recordSneakState(client.player.isShiftKeyDown());
 			}

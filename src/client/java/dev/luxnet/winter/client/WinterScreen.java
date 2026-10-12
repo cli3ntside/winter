@@ -1,17 +1,19 @@
 package dev.luxnet.winter.client;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.client.input.MouseButtonEvent;
+import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.visuals.BulletTracers;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 
+import java.util.List;
 import java.util.Locale;
 
 public class WinterScreen extends Screen {
 	private static final int PANEL_WIDTH = 320;
-	private static final int PANEL_HEIGHT = 230;
+	private static final int PANEL_HEIGHT = 270;
 	private static final int SIDEBAR_WIDTH = 92;
 	private static final int HEADER_HEIGHT = 58;
 	private static final int CONTENT_PADDING = 14;
@@ -22,14 +24,11 @@ public class WinterScreen extends Screen {
 	private int panelWidth;
 	private int panelHeight;
 	private int scrollOffset;
-	private boolean tracerSettingsExpanded;
 	private int activeSlider = -1;
+	private boolean tracerSettingsExpanded;
 	private Category selectedCategory = Category.DEBUG;
 
-	private enum Category {
-		DEBUG,
-		VISUALS
-	}
+	private enum Category { DEBUG, VISUALS }
 
 	public WinterScreen() {
 		super(Component.literal("Winter"));
@@ -47,8 +46,6 @@ public class WinterScreen extends Screen {
 	@Override
 	public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
 		graphics.fill(0, 0, width, height, 0x66000000);
-
-		// Panel and subtle edge
 		graphics.fill(panelX - 1, panelY - 1, panelX + panelWidth + 1, panelY + panelHeight + 1, 0x667E8794);
 		graphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0xE612151B);
 		graphics.fill(panelX, panelY, panelX + panelWidth, panelY + HEADER_HEIGHT, 0xF0181D25);
@@ -64,11 +61,10 @@ public class WinterScreen extends Screen {
 
 		int dividerX = panelX + SIDEBAR_WIDTH + 4;
 		graphics.fill(dividerX, panelY + HEADER_HEIGHT + 10, dividerX + 1, panelY + panelHeight - 12, 0x665E6672);
-
 		int contentX = dividerX + CONTENT_PADDING;
+		int contentRight = panelX + panelWidth - 12;
 		int contentTop = panelY + HEADER_HEIGHT + 14;
 		int contentBottom = panelY + panelHeight - 12;
-		int contentRight = panelX + panelWidth - 12;
 		graphics.enableScissor(contentX, contentTop, contentRight, contentBottom);
 		if (selectedCategory == Category.DEBUG) {
 			renderDebug(graphics, mouseX, mouseY, contentX, contentTop, contentBottom, contentRight);
@@ -76,7 +72,6 @@ public class WinterScreen extends Screen {
 			renderVisuals(graphics, contentX, contentTop, contentRight);
 		}
 		graphics.disableScissor();
-
 		super.render(graphics, mouseX, mouseY, delta);
 	}
 
@@ -90,55 +85,58 @@ public class WinterScreen extends Screen {
 	}
 
 	private void renderDebug(GuiGraphics graphics, int mouseX, int mouseY, int contentX, int contentTop,
-						 int contentBottom, int contentRight) {
-		graphics.drawString(font, "SHOT PATTERN", contentX, contentTop + 2, 0xFF82DDF6, false);
+							 int contentBottom, int contentRight) {
+		boolean captureEnabled = ShotDebugModule.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop, "Capture: " + (captureEnabled ? "ON" : "OFF"), captureEnabled);
 
-		boolean traceEnabled = ShotDebugModule.isEnabled();
-		int buttonY = contentTop + 16;
-		graphics.fill(contentX, buttonY, contentRight, buttonY + 20, traceEnabled ? 0xAA245A50 : 0xAA303640);
-		graphics.drawString(font, "Capture: " + (traceEnabled ? "ON" : "OFF"), contentX + 7, buttonY + 6,
-			traceEnabled ? 0xFF9FFFD7 : 0xFFD3D9E0, false);
+		boolean mobsEnabled = MobDebugModule.isEnabled();
+		int mobsY = contentTop + 26;
+		String mobsLabel = "Detect Mobs: " + (mobsEnabled ? "ON" : "OFF");
+		if (mobsEnabled) mobsLabel += " (" + MobDebugModule.getSnapshots().size() + ")";
+		drawModuleRow(graphics, contentX, contentRight, mobsY, mobsLabel, mobsEnabled);
 
-		var events = ShotDebugModule.getEvents();
-		int eventsTop = contentTop + 42;
+		List<String> events = ShotDebugModule.getEvents();
+		int eventsTop = contentTop + 54;
 		if (events.isEmpty()) {
 			graphics.drawString(font, "Enable capture, then test", contentX, eventsTop - scrollOffset, 0xFF9AA3AF, false);
-		} else {
-			for (int i = 0; i < events.size(); i++) {
-				int eventY = eventsTop + i * EVENT_ROW_HEIGHT - scrollOffset;
-				if (eventY + EVENT_ROW_HEIGHT >= contentTop && eventY <= contentBottom) {
-					String fullEvent = events.get(events.size() - 1 - i);
-					String event = trimToWidth(fullEvent, contentRight - contentX - 6);
-					graphics.drawString(font, event, contentX + 3, eventY, 0xFFD5DCE5, false);
-					if (mouseX >= contentX && mouseX <= contentRight && mouseY >= eventY && mouseY < eventY + EVENT_ROW_HEIGHT) {
-						graphics.setTooltipForNextFrame(Component.literal(fullEvent), mouseX, mouseY);
-					}
+			return;
+		}
+		for (int i = 0; i < events.size(); i++) {
+			int eventY = eventsTop + i * EVENT_ROW_HEIGHT - scrollOffset;
+			if (eventY + EVENT_ROW_HEIGHT >= contentTop && eventY <= contentBottom) {
+				String fullEvent = events.get(events.size() - 1 - i);
+				graphics.drawString(font, trimToWidth(fullEvent, contentRight - contentX - 6), contentX + 3, eventY,
+					0xFFD5DCE5, false);
+				if (mouseX >= contentX && mouseX <= contentRight && mouseY >= eventY && mouseY < eventY + EVENT_ROW_HEIGHT) {
+					graphics.setTooltipForNextFrame(Component.literal(fullEvent), mouseX, mouseY);
 				}
 			}
 		}
 	}
 
 	private void renderVisuals(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
-		graphics.drawString(font, "VISUALS", contentX, contentTop + 2, 0xFF82DDF6, false);
-		int buttonY = contentTop + 18;
 		boolean enabled = BulletTracers.isEnabled();
-		graphics.fill(contentX, buttonY, contentRight, buttonY + 22, enabled ? 0xAA245A50 : 0xAA303640);
-		graphics.drawString(font, "BulletTracers  " + (enabled ? "ON" : "OFF"), contentX + 7, buttonY + 7,
-			enabled ? 0xFF9FFFD7 : 0xFFD3D9E0, false);
-		graphics.drawString(font, "RClick: module settings", contentX + 7, buttonY + 23, 0xFF9AA3AF, false);
+		drawModuleRow(graphics, contentX, contentRight, contentTop,
+			"BulletTracers: " + (enabled ? "ON" : "OFF"), enabled);
+		graphics.drawString(font, "Right click for settings", contentX + 7, contentTop + 24, 0xFF9AA3AF, false);
 		if (!tracerSettingsExpanded) return;
 
-		int lifetimeLabelY = buttonY + 41;
-		graphics.drawString(font, "Lifetime", contentX, lifetimeLabelY, 0xFFEAF7FC, false);
+		int lifetimeY = contentTop + 45;
+		graphics.drawString(font, "Lifetime", contentX + 2, lifetimeY, 0xFFEAF7FC, false);
 		String lifetimeValue = String.format(Locale.ROOT, "%.2fs", BulletTracers.getLifetimeMs() / 1000.0);
-		graphics.drawString(font, lifetimeValue, contentRight - font.width(lifetimeValue), lifetimeLabelY, 0xFF9AA3AF, false);
-		drawSlider(graphics, contentX, contentRight, buttonY + 56, lifetimeProgress());
+		graphics.drawString(font, lifetimeValue, contentRight - font.width(lifetimeValue), lifetimeY, 0xFF9AA3AF, false);
+		drawSlider(graphics, contentX, contentRight, contentTop + 61, lifetimeProgress());
 
-		int thicknessLabelY = buttonY + 76;
-		graphics.drawString(font, "Thickness", contentX, thicknessLabelY, 0xFFEAF7FC, false);
+		int thicknessY = contentTop + 82;
+		graphics.drawString(font, "Thickness", contentX + 2, thicknessY, 0xFFEAF7FC, false);
 		String thicknessValue = String.format(Locale.ROOT, "%.2f", BulletTracers.getThickness());
-		graphics.drawString(font, thicknessValue, contentRight - font.width(thicknessValue), thicknessLabelY, 0xFF9AA3AF, false);
-		drawSlider(graphics, contentX, contentRight, buttonY + 91, thicknessProgress());
+		graphics.drawString(font, thicknessValue, contentRight - font.width(thicknessValue), thicknessY, 0xFF9AA3AF, false);
+		drawSlider(graphics, contentX, contentRight, contentTop + 98, thicknessProgress());
+	}
+
+	private void drawModuleRow(GuiGraphics graphics, int left, int right, int y, String label, boolean enabled) {
+		graphics.fill(left, y, right, y + 21, enabled ? 0xAA245A50 : 0xAA303640);
+		graphics.drawString(font, label, left + 8, y + 6, enabled ? 0xFF9FFFD7 : 0xFFD3D9E0, false);
 	}
 
 	private void drawSlider(GuiGraphics graphics, int left, int right, int y, double progress) {
@@ -148,22 +146,16 @@ public class WinterScreen extends Screen {
 		graphics.fill(knobX - 3, y - 3, knobX + 4, y + 7, 0xFFEAF7FC);
 	}
 
-	private double lifetimeProgress() {
-		return (BulletTracers.getLifetimeMs() - 200) / 2800.0;
-	}
-
-	private double thicknessProgress() {
-		return (BulletTracers.getThickness() - 0.08) / 0.56;
-	}
-
-	private int visualsModuleY() { return panelY + HEADER_HEIGHT + 14 + 18; }
-	private int lifetimeSliderY() { return visualsModuleY() + 56; }
-	private int thicknessSliderY() { return visualsModuleY() + 91; }
+	private double lifetimeProgress() { return (BulletTracers.getLifetimeMs() - 200) / 2800.0; }
+	private double thicknessProgress() { return (BulletTracers.getThickness() - 0.08) / 0.56; }
+	private int contentLeft() { return panelX + SIDEBAR_WIDTH + 4 + CONTENT_PADDING; }
+	private int contentRight() { return panelX + panelWidth - 12; }
+	private int contentTop() { return panelY + HEADER_HEIGHT + 14; }
+	private int lifetimeSliderY() { return contentTop() + 61; }
+	private int thicknessSliderY() { return contentTop() + 98; }
 
 	private void updateSlider(double mouseX) {
-		int left = panelX + SIDEBAR_WIDTH + 4 + CONTENT_PADDING;
-		int right = panelX + panelWidth - 12;
-		double progress = Math.max(0.0, Math.min(1.0, (mouseX - left) / (right - left)));
+		double progress = Math.max(0.0, Math.min(1.0, (mouseX - contentLeft()) / (contentRight() - contentLeft())));
 		if (activeSlider == 0) {
 			int value = 200 + (int) Math.round(progress * 2800.0);
 			BulletTracers.setLifetimeMs((int) Math.round(value / 50.0) * 50);
@@ -179,7 +171,6 @@ public class WinterScreen extends Screen {
 		float x = (width - titleWidth * scale) / 2.0F;
 		float y = panelY + 16;
 		long time = System.currentTimeMillis();
-
 		graphics.pose().pushMatrix();
 		graphics.pose().scale(scale, scale);
 		float drawX = x / scale;
@@ -202,17 +193,12 @@ public class WinterScreen extends Screen {
 
 	private String trimToWidth(String text, int maxWidth) {
 		String result = text;
-		while (!result.isEmpty() && font.width(result) > maxWidth) {
-			result = result.substring(0, result.length() - 1);
-		}
+		while (!result.isEmpty() && font.width(result) > maxWidth) result = result.substring(0, result.length() - 1);
 		return result.equals(text) ? result : result + "…";
 	}
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		int dividerX = panelX + SIDEBAR_WIDTH + 4;
-		int contentX = dividerX + CONTENT_PADDING;
-		int contentRight = panelX + panelWidth - 12;
 		int sidebarX = panelX + 10;
 		int sidebarY = panelY + HEADER_HEIGHT + 12;
 		if (event.button() == 0 && event.x() >= sidebarX && event.x() < panelX + SIDEBAR_WIDTH) {
@@ -228,17 +214,21 @@ public class WinterScreen extends Screen {
 			}
 		}
 
-		int contentTop = panelY + HEADER_HEIGHT + 14;
-		if (event.x() >= contentX && event.x() <= contentRight) {
+		int left = contentLeft();
+		int right = contentRight();
+		int top = contentTop();
+		if (event.x() >= left && event.x() <= right) {
 			if (selectedCategory == Category.DEBUG && event.button() == 0) {
-				int buttonY = contentTop + 16;
-				if (event.y() >= buttonY && event.y() <= buttonY + 20) {
+				if (event.y() >= top && event.y() <= top + 21) {
 					ShotDebugModule.toggle();
 					return true;
 				}
+				if (event.y() >= top + 26 && event.y() <= top + 47) {
+					MobDebugModule.toggle();
+					return true;
+				}
 			} else if (selectedCategory == Category.VISUALS) {
-				int buttonY = contentTop + 18;
-				if (event.y() >= buttonY && event.y() <= buttonY + 22) {
+				if (event.y() >= top && event.y() <= top + 21) {
 					if (event.button() == 0) BulletTracers.toggle();
 					else if (event.button() == 1) tracerSettingsExpanded = !tracerSettingsExpanded;
 					return true;
@@ -276,14 +266,14 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-		int contentLeft = panelX + SIDEBAR_WIDTH + CONTENT_PADDING + 5;
-		int contentRight = panelX + panelWidth - 12;
-		int contentTop = panelY + HEADER_HEIGHT + 10;
+		int contentLeft = contentLeft();
+		int contentRight = contentRight();
+		int contentTop = contentTop();
 		int contentBottom = panelY + panelHeight - 12;
-		if (mouseX >= contentLeft && mouseX <= contentRight && mouseY >= contentTop && mouseY <= contentBottom) {
-			int visibleHeight = contentBottom - contentTop;
-			int contentHeight = 42 + ShotDebugModule.getEvents().size() * EVENT_ROW_HEIGHT;
-			int maxScroll = Math.max(0, contentHeight - visibleHeight);
+		if (selectedCategory == Category.DEBUG && mouseX >= contentLeft && mouseX <= contentRight
+			&& mouseY >= contentTop && mouseY <= contentBottom) {
+			int visibleHeight = contentBottom - (contentTop + 54);
+			int maxScroll = Math.max(0, ShotDebugModule.getEvents().size() * EVENT_ROW_HEIGHT - visibleHeight);
 			scrollOffset = Math.max(0, Math.min(maxScroll,
 				scrollOffset - (int) Math.signum(verticalAmount) * 12));
 			return true;
@@ -292,7 +282,5 @@ public class WinterScreen extends Screen {
 	}
 
 	@Override
-	public boolean isPauseScreen() {
-		return false;
-	}
+	public boolean isPauseScreen() { return false; }
 }

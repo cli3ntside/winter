@@ -54,8 +54,12 @@ public final class ShotDebugModule {
 
 		if (packet instanceof ServerboundUseItemPacket useItem) {
 			ItemStack item = player.getItemInHand(useItem.getHand());
+			String shotPattern = WeaponCatalog.detectionSignal(item).orElseGet(() ->
+				WeaponCatalog.fireRateSeconds(item).isPresent()
+					? "fire-rate-candidate delay=" + WeaponCatalog.fireRateSeconds(item).getAsDouble() + "s"
+					: "unknown");
 			record("RIGHT CLICK REQUEST " + useItem.getHand() + " | " + WeaponCatalog.describe(item)
-				+ " | pattern=" + WeaponCatalog.detectionSignal(item).orElse("unknown"));
+				+ " | pattern=" + shotPattern);
 		} else if (packet instanceof ServerboundSwingPacket swing) {
 			ItemStack item = player.getItemInHand(swing.getHand());
 			String action = WeaponCatalog.isKnownWeapon(item) && !WeaponCatalog.isMeleeWeapon(item)
@@ -71,6 +75,18 @@ public final class ShotDebugModule {
 		}
 		wasSneaking = sneaking;
 		if (enabled) record("SNEAK " + (sneaking ? "DOWN" : "UP"));
+	}
+
+	public static synchronized void recordReloadCandidate(ItemStack item, double seconds, int damage, int maxDamage) {
+		if (!enabled) return;
+		record("RELOAD CANDIDATE " + WeaponCatalog.describe(item) + " duration=" + seconds + "s durability="
+			+ damage + "/" + maxDamage);
+	}
+
+	public static synchronized void recordReloadConfirmed(ItemStack item, int previousDamage, int currentDamage, int maxDamage) {
+		if (!enabled) return;
+		record("RELOAD CONFIRMED " + WeaponCatalog.describe(item) + " durability=" + previousDamage + "->"
+			+ currentDamage + "/" + maxDamage);
 	}
 
 	public static synchronized void recordServerMessage(ClientboundSystemChatPacket packet) {

@@ -7,16 +7,20 @@ import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.HashMap;
 import java.util.ArrayDeque;
 import java.util.Iterator;
+import java.util.Map;
 
 public final class BulletTracers {
-	private static final long SIGNAL_TIMEOUT_NANOS = 2_000_000_000L;
+	private static final long SIGNAL_TIMEOUT_NANOS = 750_000_000L;
 	private static final double MAX_DISTANCE = 128.0;
 	private static final double SIGNAL_DISTANCE = 5.0;
 	private static final double START_DROP = 0.20;
@@ -28,9 +32,12 @@ public final class BulletTracers {
 	private static final float MAX_THICKNESS = 0.64F;
 	private static final ArrayDeque<PendingShot> PENDING = new ArrayDeque<>();
 	private static final ArrayDeque<Trace> TRACES = new ArrayDeque<>();
+	private static final Map<String, Long> NEXT_LORE_SHOT = new HashMap<>();
+	private static final Map<String, ReloadState> RELOADS = new HashMap<>();
+	private static final Map<String, DurabilityState> LAST_DURABILITY = new HashMap<>();
 	private static boolean enabled;
 	private static int lifetimeMs = 1_000;
-	private static float thickness = 0.32F;
+	private static float thickness = 0.08F;
 
 	private BulletTracers() { }
 
@@ -52,30 +59,101 @@ public final class BulletTracers {
 
 	public static synchronized void toggle() {
 		enabled = !enabled;
-		if (!enabled) TRACES.clear();
+		if (!enabled) {
+			TRACES.clear();
+			NEXT_LORE_SHOT.clear();
+		}
 	}
 
 	public static synchronized void onOutgoingPacket(Packet<?> packet) {
-		if (!(packet instanceof ServerboundUseItemPacket useItem)) return;
 		Minecraft minecraft = Minecraft.getInstance();
 		if (minecraft.player == null || minecraft.level == null || minecraft.screen != null) return;
+		if (packet instanceof ServerboundSwingPacket swing) {
+			ItemStack item = minecraft.player.getItemInHand(swing.getHand());
+			if (item.isEmpty()) return;
+			var reloadSeconds = WeaponCatalog.reloadSeconds(item);
+			if (reloadSeconds.isPresent()) {
+				String weapon = WeaponCatalog.normalizedName(item);
+				long now = System.nanoTime();
+				int damage = item.getDamageValue();
+				long duration = (long) (reloadSeconds.getAsDouble() * 1_000_000_000L);
+				LAST_DURABILITY.putIfAbsent(weapon, new DurabilityState(damage, item.getMaxDamage()));
+				boolean newReload = !isReloading(weapon, now);
+				if (newReload) RELOADS.put(weapon, new ReloadState(now + duration, damage, false));
+				if (newReload && dev.luxnet.winter.client.debug.ShotDebugModule.isEnabled()) {
+					dev.luxnet.winter.client.debug.ShotDebugModule.recordReloadCandidate(
+						item, reloadSeconds.getAsDouble(), damage, item.getMaxDamage());
+				}
+			}
+			return;
+		}
+		if (!(packet instanceof ServerboundUseItemPacket useItem)) return;
 		ItemStack item = minecraft.player.getItemInHand(useItem.getHand());
+		String weapon = WeaponCatalog.normalizedName(item);
+		long now = System.nanoTime();
+		if (isReloading(weapon, now)) return;
 		String signal = WeaponCatalog.detectionSignal(item).orElse(null);
-		if (signal == null) return;
-
 		Vec3 start = minecraft.player.getEyePosition();
 		Vec3 direction = minecraft.player.getViewVector(1.0F).normalize();
 		HitResult hit = minecraft.player.pick(MAX_DISTANCE, 1.0F, false);
 		double distance = hit.getType() == HitResult.Type.MISS ? MAX_DISTANCE : start.distanceTo(hit.getLocation());
-		while (PENDING.size() >= MAX_PENDING) PENDING.removeFirst();
-		PENDING.addLast(new PendingShot(WeaponCatalog.normalizedName(item), signal, start, direction, distance,
-			System.nanoTime() + SIGNAL_TIMEOUT_NANOS));
+		if (signal != null) {
+			while (PENDING.size() >= MAX_PENDING) PENDING.removeFirst();
+			PENDING.addLast(new PendingShot(weapon, signal, start, direction, distance,
+				now + SIGNAL_TIMEOUT_NANOS));
+			return;
+		}
+
+		if (!enabled || WeaponCatalog.isMeleeWeapon(item)) return;
+		var fireRate = WeaponCatalog.fireRateSeconds(item);
+		if (fireRate.isEmpty()) return;
+		long interval = (long) (fireRate.getAsDouble() * 1_000_000_000L);
+		if (now < NEXT_LORE_SHOT.getOrDefault(weapon, 0L)) return;
+		NEXT_LORE_SHOT.put(weapon, now + interval);
+		addTrace(start, direction, distance, now);
+	}
+
+	public static synchronized void tick(Minecraft minecraft) {
+		Player player = minecraft.player;
+		if (player == null || minecraft.level == null) {
+			LAST_DURABILITY.clear();
+			return;
+		}
+		long now = System.nanoTime();
+		for (var hand : net.minecraft.world.InteractionHand.values()) {
+			ItemStack stack = player.getItemInHand(hand);
+			if (stack.isEmpty() || stack.getMaxDamage() <= 0) continue;
+			String weapon = WeaponCatalog.normalizedName(stack);
+			DurabilityState current = new DurabilityState(stack.getDamageValue(), stack.getMaxDamage());
+			DurabilityState previous = LAST_DURABILITY.put(weapon, current);
+			ReloadState reload = RELOADS.get(weapon);
+			if (reload != null && now <= reload.until && !reload.confirmed
+				&& previous != null && current.damage < previous.damage) {
+				RELOADS.put(weapon, new ReloadState(reload.until, reload.damageBefore, true));
+				if (dev.luxnet.winter.client.debug.ShotDebugModule.isEnabled()) {
+					dev.luxnet.winter.client.debug.ShotDebugModule.recordReloadConfirmed(
+						stack, previous.damage, current.damage, current.maxDamage);
+				}
+			}
+		}
+		RELOADS.entrySet().removeIf(entry -> now > entry.getValue().until);
+	}
+
+	private static boolean isReloading(String weapon, long now) {
+		ReloadState state = RELOADS.get(weapon);
+		if (state == null) return false;
+		if (now > state.until) {
+			RELOADS.remove(weapon);
+			return false;
+		}
+		return true;
 	}
 
 	/** Returns the weapon name when a pending local shot matches this sound or particle. */
 	public static synchronized String observeSignal(String kind, String identifier, Vec3 position) {
 		long now = System.nanoTime();
-		Iterator<PendingShot> iterator = PENDING.iterator();
+		// Rapid fire queues several requests; a matching server signal belongs to the most recent one.
+		Iterator<PendingShot> iterator = PENDING.descendingIterator();
 		while (iterator.hasNext()) {
 			PendingShot shot = iterator.next();
 			if (now > shot.expiresAt) {
@@ -100,7 +178,7 @@ public final class BulletTracers {
 	}
 
 	private static void render(WorldRenderContext context) {
-		if (!enabled || TRACES.isEmpty()) return;
+		if (!enabled) return;
 		long now = System.nanoTime();
 		TRACES.removeIf(trace -> now - trace.createdAt >= lifetimeMs * 1_000_000L);
 		if (TRACES.isEmpty()) return;
@@ -115,6 +193,13 @@ public final class BulletTracers {
 			Vec3 direction = to.subtract(from).normalize();
 			drawGlow(quads, context, from, to, direction, fade);
 		}
+	}
+
+	private static void addTrace(Vec3 origin, Vec3 direction, double length, long now) {
+		while (TRACES.size() >= MAX_TRACERS) TRACES.removeFirst();
+		Vec3 start = origin.add(0.0, -START_DROP, 0.0);
+		Vec3 end = origin.add(direction.scale(length));
+		TRACES.addLast(new Trace(start, end, now));
 	}
 
 	private static void drawGlow(VertexConsumer quads, WorldRenderContext context, Vec3 from, Vec3 to,
@@ -171,5 +256,7 @@ public final class BulletTracers {
 	}
 
 	private record PendingShot(String weaponName, String signal, Vec3 origin, Vec3 direction, double length, long expiresAt) { }
+	private record ReloadState(long until, int damageBefore, boolean confirmed) { }
+	private record DurabilityState(int damage, int maxDamage) { }
 	private record Trace(Vec3 start, Vec3 end, long createdAt) { }
 }
