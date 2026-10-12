@@ -2,6 +2,7 @@ package dev.luxnet.winter.client.visuals;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.luxnet.winter.client.WeaponCatalog;
+import dev.luxnet.winter.client.WinterConfig;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
@@ -50,19 +51,27 @@ public final class BulletTracers {
 	public static float getThickness() { return thickness; }
 
 	public static void setLifetimeMs(int value) {
-		lifetimeMs = Math.max(MIN_LIFETIME_MS, Math.min(MAX_LIFETIME_MS, value));
+		int updated = Math.max(MIN_LIFETIME_MS, Math.min(MAX_LIFETIME_MS, value));
+		if (lifetimeMs != updated) { lifetimeMs = updated; WinterConfig.save(); }
 	}
 
 	public static void setThickness(float value) {
-		thickness = Math.max(MIN_THICKNESS, Math.min(MAX_THICKNESS, value));
+		float updated = Math.max(MIN_THICKNESS, Math.min(MAX_THICKNESS, value));
+		if (Float.compare(thickness, updated) != 0) { thickness = updated; WinterConfig.save(); }
 	}
 
 	public static synchronized void toggle() {
-		enabled = !enabled;
+		setEnabled(!enabled);
+	}
+
+	public static synchronized void setEnabled(boolean value) {
+		if (enabled == value) return;
+		enabled = value;
 		if (!enabled) {
 			TRACES.clear();
 			NEXT_LORE_SHOT.clear();
 		}
+		WinterConfig.save();
 	}
 
 	public static synchronized void onOutgoingPacket(Packet<?> packet) {

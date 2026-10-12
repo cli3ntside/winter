@@ -1,5 +1,6 @@
 package dev.luxnet.winter.client.visuals;
 
+import dev.luxnet.winter.client.WinterConfig;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
@@ -25,8 +26,12 @@ public final class LuckyChestEsp {
 
 	public static boolean isEnabled() { return enabled; }
 	public static int getRenderDistance() { return renderDistance; }
-	public static void setRenderDistance(int value) { renderDistance = Math.max(16, Math.min(128, value)); }
-	public static void toggle() { enabled = !enabled; }
+	public static void setRenderDistance(int value) {
+		int updated = Math.max(16, Math.min(128, value));
+		if (renderDistance != updated) { renderDistance = updated; WinterConfig.save(); }
+	}
+	public static void toggle() { setEnabled(!enabled); }
+	public static void setEnabled(boolean value) { if (enabled != value) { enabled = value; WinterConfig.save(); } }
 
 	private static void render(WorldRenderContext context) {
 		if (!enabled) return;

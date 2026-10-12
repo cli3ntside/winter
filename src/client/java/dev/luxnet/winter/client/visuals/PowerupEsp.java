@@ -1,5 +1,6 @@
 package dev.luxnet.winter.client.visuals;
 
+import dev.luxnet.winter.client.WinterConfig;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
@@ -32,8 +33,17 @@ public final class PowerupEsp {
 
 	public static boolean isEnabled() { return enabled; }
 	public static int getRenderDistance() { return renderDistance; }
-	public static void setRenderDistance(int value) { renderDistance = Math.max(16, Math.min(128, value)); }
-	public static void toggle() { enabled = !enabled; if (!enabled) TARGETS.clear(); }
+	public static void setRenderDistance(int value) {
+		int updated = Math.max(16, Math.min(128, value));
+		if (renderDistance != updated) { renderDistance = updated; WinterConfig.save(); }
+	}
+	public static void toggle() { setEnabled(!enabled); }
+	public static void setEnabled(boolean value) {
+		if (enabled == value) return;
+		enabled = value;
+		if (!enabled) TARGETS.clear();
+		WinterConfig.save();
+	}
 
 	public static void tick(Minecraft minecraft) {
 		if (!enabled || minecraft.level == null || minecraft.player == null) {

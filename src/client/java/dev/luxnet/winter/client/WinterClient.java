@@ -21,6 +21,7 @@ public class WinterClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		WinterHud.register();
+		WinterConfig.load(Minecraft.getInstance());
 		BulletTracers.registerWorldRender();
 		LuckyChestEsp.registerWorldRender();
 		MobEsp.registerWorldRender();

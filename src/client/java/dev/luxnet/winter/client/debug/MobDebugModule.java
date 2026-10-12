@@ -1,6 +1,7 @@
 package dev.luxnet.winter.client.debug;
 
 import dev.luxnet.winter.Winter;
+import dev.luxnet.winter.client.WinterConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Mob;
@@ -35,10 +36,16 @@ public final class MobDebugModule {
 	}
 
 	public static synchronized void toggle() {
-		enabled = !enabled;
+		setEnabled(!enabled);
+	}
+
+	public static synchronized void setEnabled(boolean value) {
+		if (enabled == value) return;
+		enabled = value;
 		ticksUntilScan = 0;
 		if (!enabled) SNAPSHOTS.clear();
 		Winter.LOGGER.info("[mob-detect] {}", enabled ? "enabled" : "disabled");
+		WinterConfig.save();
 	}
 
 	public static synchronized List<MobSnapshot> getSnapshots() {

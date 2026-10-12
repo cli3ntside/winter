@@ -1,6 +1,7 @@
 package dev.luxnet.winter.client.debug;
 
 import dev.luxnet.winter.Winter;
+import dev.luxnet.winter.client.WinterConfig;
 import dev.luxnet.winter.client.WeaponCatalog;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import net.minecraft.client.Minecraft;
@@ -37,8 +38,14 @@ public final class ShotDebugModule {
 	}
 
 	public static synchronized void toggle() {
-		enabled = !enabled;
+		setEnabled(!enabled);
+	}
+
+	public static synchronized void setEnabled(boolean value) {
+		if (enabled == value) return;
+		enabled = value;
 		record(enabled ? "TRACE ENABLED" : "TRACE DISABLED");
+		WinterConfig.save();
 	}
 
 	public static synchronized List<String> getEvents() {

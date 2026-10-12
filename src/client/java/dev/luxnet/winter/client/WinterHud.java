@@ -16,8 +16,13 @@ public final class WinterHud {
 	}
 
 	public static boolean isWatermarkEnabled() { return watermarkEnabled; }
-	public static void setWatermarkEnabled(boolean enabled) { watermarkEnabled = enabled; }
-	public static void toggleWatermark() { watermarkEnabled = !watermarkEnabled; }
+	public static void setWatermarkEnabled(boolean enabled) {
+		if (watermarkEnabled != enabled) {
+			watermarkEnabled = enabled;
+			WinterConfig.save();
+		}
+	}
+	public static void toggleWatermark() { setWatermarkEnabled(!watermarkEnabled); }
 
 	private static void render(GuiGraphics graphics, net.minecraft.client.DeltaTracker deltaTracker) {
 		Minecraft minecraft = Minecraft.getInstance();
