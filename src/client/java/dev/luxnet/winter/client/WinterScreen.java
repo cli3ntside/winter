@@ -3,6 +3,10 @@ package dev.luxnet.winter.client;
 import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.visuals.BulletTracers;
+import dev.luxnet.winter.client.visuals.LuckyChestEsp;
+import dev.luxnet.winter.client.visuals.MobEsp;
+import dev.luxnet.winter.client.visuals.TeamEsp;
+import dev.luxnet.winter.client.visuals.PowerupEsp;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -13,7 +17,7 @@ import java.util.Locale;
 
 public class WinterScreen extends Screen {
 	private static final int PANEL_WIDTH = 320;
-	private static final int PANEL_HEIGHT = 270;
+	private static final int PANEL_HEIGHT = 320;
 	private static final int SIDEBAR_WIDTH = 92;
 	private static final int HEADER_HEIGHT = 58;
 	private static final int CONTENT_PADDING = 14;
@@ -25,7 +29,7 @@ public class WinterScreen extends Screen {
 	private int panelHeight;
 	private int scrollOffset;
 	private int activeSlider = -1;
-	private boolean tracerSettingsExpanded;
+	private int expandedModule = -1;
 	private Category selectedCategory = Category.DEBUG;
 
 	private enum Category { DEBUG, VISUALS }
@@ -118,20 +122,47 @@ public class WinterScreen extends Screen {
 		boolean enabled = BulletTracers.isEnabled();
 		drawModuleRow(graphics, contentX, contentRight, contentTop,
 			"BulletTracers: " + (enabled ? "ON" : "OFF"), enabled);
-		graphics.drawString(font, "Right click for settings", contentX + 7, contentTop + 24, 0xFF9AA3AF, false);
-		if (!tracerSettingsExpanded) return;
+		boolean chestEspEnabled = LuckyChestEsp.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 27,
+			"Lucky Chest ESP: " + (chestEspEnabled ? "ON" : "OFF"), chestEspEnabled);
+		boolean mobEspEnabled = MobEsp.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 54,
+			"Mob ESP: " + (mobEspEnabled ? "ON" : "OFF"), mobEspEnabled);
+		boolean teamEspEnabled = TeamEsp.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 81,
+			"Team ESP: " + (teamEspEnabled ? "ON" : "OFF"), teamEspEnabled);
+		boolean powerupEspEnabled = PowerupEsp.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 108,
+			"Powerup ESP: " + (powerupEspEnabled ? "ON" : "OFF"), powerupEspEnabled);
+		if (expandedModule == 0) {
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 163, "Lifetime",
+				String.format(Locale.ROOT, "%.2fs", BulletTracers.getLifetimeMs() / 1000.0));
+			drawSlider(graphics, contentX, contentRight, contentTop + 178, lifetimeProgress());
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 198, "Thickness",
+				String.format(Locale.ROOT, "%.2f", BulletTracers.getThickness()));
+			drawSlider(graphics, contentX, contentRight, contentTop + 213, thicknessProgress());
+		} else if (expandedModule == 1) {
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
+				LuckyChestEsp.getRenderDistance() + " blocks");
+			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(LuckyChestEsp.getRenderDistance()));
+		} else if (expandedModule == 2) {
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
+				MobEsp.getRenderDistance() + " blocks");
+			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(MobEsp.getRenderDistance()));
+		} else if (expandedModule == 3) {
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
+				TeamEsp.getRenderDistance() + " blocks");
+			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(TeamEsp.getRenderDistance()));
+		} else if (expandedModule == 4) {
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
+				PowerupEsp.getRenderDistance() + " blocks");
+			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(PowerupEsp.getRenderDistance()));
+		}
+	}
 
-		int lifetimeY = contentTop + 45;
-		graphics.drawString(font, "Lifetime", contentX + 2, lifetimeY, 0xFFEAF7FC, false);
-		String lifetimeValue = String.format(Locale.ROOT, "%.2fs", BulletTracers.getLifetimeMs() / 1000.0);
-		graphics.drawString(font, lifetimeValue, contentRight - font.width(lifetimeValue), lifetimeY, 0xFF9AA3AF, false);
-		drawSlider(graphics, contentX, contentRight, contentTop + 61, lifetimeProgress());
-
-		int thicknessY = contentTop + 82;
-		graphics.drawString(font, "Thickness", contentX + 2, thicknessY, 0xFFEAF7FC, false);
-		String thicknessValue = String.format(Locale.ROOT, "%.2f", BulletTracers.getThickness());
-		graphics.drawString(font, thicknessValue, contentRight - font.width(thicknessValue), thicknessY, 0xFF9AA3AF, false);
-		drawSlider(graphics, contentX, contentRight, contentTop + 98, thicknessProgress());
+	private void drawSettingLabel(GuiGraphics graphics, int left, int right, int y, String name, String value) {
+		graphics.drawString(font, name, left + 2, y, 0xFFEAF7FC, false);
+		graphics.drawString(font, value, right - font.width(value), y, 0xFF9AA3AF, false);
 	}
 
 	private void drawModuleRow(GuiGraphics graphics, int left, int right, int y, String label, boolean enabled) {
@@ -148,11 +179,13 @@ public class WinterScreen extends Screen {
 
 	private double lifetimeProgress() { return (BulletTracers.getLifetimeMs() - 200) / 2800.0; }
 	private double thicknessProgress() { return (BulletTracers.getThickness() - 0.08) / 0.56; }
+	private double rangeProgress(int distance) { return (distance - 16) / 112.0; }
 	private int contentLeft() { return panelX + SIDEBAR_WIDTH + 4 + CONTENT_PADDING; }
 	private int contentRight() { return panelX + panelWidth - 12; }
 	private int contentTop() { return panelY + HEADER_HEIGHT + 14; }
-	private int lifetimeSliderY() { return contentTop() + 61; }
-	private int thicknessSliderY() { return contentTop() + 98; }
+	private int lifetimeSliderY() { return contentTop() + 178; }
+	private int thicknessSliderY() { return contentTop() + 213; }
+	private int rangeSliderY() { return contentTop() + 181; }
 
 	private void updateSlider(double mouseX) {
 		double progress = Math.max(0.0, Math.min(1.0, (mouseX - contentLeft()) / (contentRight() - contentLeft())));
@@ -161,6 +194,14 @@ public class WinterScreen extends Screen {
 			BulletTracers.setLifetimeMs((int) Math.round(value / 50.0) * 50);
 		} else if (activeSlider == 1) {
 			BulletTracers.setThickness((float) (0.08 + progress * 0.56));
+		} else if (activeSlider == 2) {
+			LuckyChestEsp.setRenderDistance(16 + (int) Math.round(progress * 112.0));
+		} else if (activeSlider == 3) {
+			MobEsp.setRenderDistance(16 + (int) Math.round(progress * 112.0));
+		} else if (activeSlider == 4) {
+			TeamEsp.setRenderDistance(16 + (int) Math.round(progress * 112.0));
+		} else if (activeSlider == 5) {
+			PowerupEsp.setRenderDistance(16 + (int) Math.round(progress * 112.0));
 		}
 	}
 
@@ -230,12 +271,36 @@ public class WinterScreen extends Screen {
 			} else if (selectedCategory == Category.VISUALS) {
 				if (event.y() >= top && event.y() <= top + 21) {
 					if (event.button() == 0) BulletTracers.toggle();
-					else if (event.button() == 1) tracerSettingsExpanded = !tracerSettingsExpanded;
+					else if (event.button() == 1) expandedModule = expandedModule == 0 ? -1 : 0;
 					return true;
 				}
-				if (tracerSettingsExpanded && event.button() == 0) {
-					if (Math.abs(event.y() - lifetimeSliderY()) <= 6) activeSlider = 0;
-					else if (Math.abs(event.y() - thicknessSliderY()) <= 6) activeSlider = 1;
+				if (event.y() >= top + 27 && event.y() <= top + 48) {
+					if (event.button() == 0) LuckyChestEsp.toggle();
+					else if (event.button() == 1) expandedModule = expandedModule == 1 ? -1 : 1;
+					return true;
+				}
+				if (event.y() >= top + 54 && event.y() <= top + 75) {
+					if (event.button() == 0) MobEsp.toggle();
+					else if (event.button() == 1) expandedModule = expandedModule == 2 ? -1 : 2;
+					return true;
+				}
+				if (event.y() >= top + 81 && event.y() <= top + 102) {
+					if (event.button() == 0) TeamEsp.toggle();
+					else if (event.button() == 1) expandedModule = expandedModule == 3 ? -1 : 3;
+					return true;
+				}
+				if (event.y() >= top + 108 && event.y() <= top + 129) {
+					if (event.button() == 0) PowerupEsp.toggle();
+					else if (event.button() == 1) expandedModule = expandedModule == 4 ? -1 : 4;
+					return true;
+				}
+				if (expandedModule != -1 && event.button() == 0) {
+					if (expandedModule == 0 && Math.abs(event.y() - lifetimeSliderY()) <= 6) activeSlider = 0;
+					else if (expandedModule == 0 && Math.abs(event.y() - thicknessSliderY()) <= 6) activeSlider = 1;
+					else if (expandedModule == 1 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 2;
+					else if (expandedModule == 2 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 3;
+					else if (expandedModule == 3 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 4;
+					else if (expandedModule == 4 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 5;
 					if (activeSlider != -1) {
 						updateSlider(event.x());
 						return true;
