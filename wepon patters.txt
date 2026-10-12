@@ -1,0 +1,6 @@
+[18:27:00] [Render thread/INFO]: [shot-trace] 18:27:00.84 RIGHT CLICK REQUEST MAIN_HAND | Pistol (minecraft:wooden_hoe, weapon=Pistol) | shoot-or-interact; waiting for next sound
+[18:27:01] [Render thread/INFO]: [shot-trace] 18:27:01.01 NEXT SOUND AFTER RIGHT CLICK minecraft:entity.iron_golem.hurt NEUTRAL at 15.0,67.5,42.6
+
+Rifle particle = Firework
+
+Shotgun Particle = Tnt black smoke

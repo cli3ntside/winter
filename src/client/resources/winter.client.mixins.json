@@ -3,7 +3,9 @@
 	"package": "dev.luxnet.winter.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"WinterClientMixin"
+		"WinterClientMixin",
+		"ShotTraceConnectionMixin",
+		"ShotTracePacketMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
