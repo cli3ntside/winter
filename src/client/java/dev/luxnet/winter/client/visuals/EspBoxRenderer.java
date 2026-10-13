@@ -11,6 +11,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.gui.Font;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -45,6 +46,20 @@ final class EspBoxRenderer {
 		drawLine(lines, pose, box.maxX, box.minY, box.minZ, box.maxX, box.maxY, box.minZ, color, width);
 		drawLine(lines, pose, box.maxX, box.minY, box.maxZ, box.maxX, box.maxY, box.maxZ, color, width);
 		drawLine(lines, pose, box.minX, box.minY, box.maxZ, box.minX, box.maxY, box.maxZ, color, width);
+	}
+
+	static void drawLabel(WorldRenderContext context, Vec3 worldPosition, String text, int color) {
+		var minecraft = Minecraft.getInstance();
+		Vec3 camera = minecraft.gameRenderer.getMainCamera().position();
+		var matrices = context.matrices();
+		matrices.pushPose();
+		matrices.translate(worldPosition.x - camera.x, worldPosition.y - camera.y, worldPosition.z - camera.z);
+		matrices.mulPose(minecraft.gameRenderer.getMainCamera().rotation());
+		matrices.scale(-0.025F, -0.025F, 0.025F);
+		Font font = minecraft.font;
+		font.drawInBatch(text, -font.width(text) / 2.0F, 0.0F, color, true, matrices.last().pose(),
+			context.consumers(), Font.DisplayMode.SEE_THROUGH, 0x70000000, 0xF000F0);
+		matrices.popPose();
 	}
 
 	private static void drawLine(VertexConsumer consumer, com.mojang.blaze3d.vertex.PoseStack.Pose pose,

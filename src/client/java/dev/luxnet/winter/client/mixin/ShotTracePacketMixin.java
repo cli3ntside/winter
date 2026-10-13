@@ -1,6 +1,7 @@
 package dev.luxnet.winter.client.mixin;
 
 import dev.luxnet.winter.client.debug.ShotDebugModule;
+import dev.luxnet.winter.client.visuals.TeamEsp;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundEntityPacket;
@@ -31,5 +32,6 @@ public abstract class ShotTracePacketMixin {
 	@Inject(method = "handleSystemChat", at = @At("TAIL"))
 	private void winter$captureServerAction(ClientboundSystemChatPacket packet, CallbackInfo info) {
 		ShotDebugModule.recordServerMessage(packet);
+		TeamEsp.onServerMessage(packet.content().getString());
 	}
 }
