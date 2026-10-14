@@ -3,6 +3,7 @@ package dev.luxnet.winter.client;
 import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.AreaSelector;
 import dev.luxnet.winter.client.assistance.AutoRevive;
+import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -14,6 +15,9 @@ import dev.luxnet.winter.client.WinterHud;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
+import com.mojang.blaze3d.platform.InputConstants;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
@@ -28,6 +32,8 @@ public class WinterScreen extends Screen {
 	private static final int CONTENT_PADDING = 14;
 	private static final int EVENT_ROW_HEIGHT = 13;
 	private static final int DEBUG_AREA_EXPANSION = 10;
+	private static Category savedCategory = Category.ASSISTANCE;
+	private static int savedExpandedModule = -1;
 
 	private int panelX;
 	private int panelY;
@@ -35,13 +41,38 @@ public class WinterScreen extends Screen {
 	private int panelHeight;
 	private int scrollOffset;
 	private int activeSlider = -1;
-	private int expandedModule = -1;
-	private Category selectedCategory = Category.DEBUG;
+	private int expandedModule;
+	private boolean waitingForFreecamBind;
+	private Category selectedCategory;
 
-	private enum Category { DEBUG, VISUALS, HUD, ASSISTANCE }
+	private enum Category { ASSISTANCE, VISUALS, HUD, DEBUG }
 
 	public WinterScreen() {
 		super(Component.literal("Winter"));
+		selectedCategory = savedCategory;
+		expandedModule = savedExpandedModule;
+	}
+
+	public static void loadMenuState(String categoryName, int module) {
+		try { savedCategory = Category.valueOf(categoryName); }
+		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 20 || module >= 0 && module <= 5
+			? module : -1;
+	}
+
+	public static String getSelectedCategoryName() { return savedCategory.name(); }
+	public static int getExpandedModule() { return savedExpandedModule; }
+
+	private void setSelectedCategory(Category category) {
+		selectedCategory = category;
+		savedCategory = category;
+		WinterConfig.save();
+	}
+
+	private void setExpandedModule(int module) {
+		expandedModule = module;
+		savedExpandedModule = module;
+		WinterConfig.save();
 	}
 
 	@Override
@@ -66,10 +97,10 @@ public class WinterScreen extends Screen {
 		int sidebarX = panelX + 10;
 		int sidebarY = panelY + HEADER_HEIGHT + 12;
 		int sidebarRight = panelX + SIDEBAR_WIDTH;
-		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY, sidebarRight, "Debug", Category.DEBUG);
+		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY, sidebarRight, "Assistance", Category.ASSISTANCE);
 		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 30, sidebarRight, "Visuals", Category.VISUALS);
 		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 60, sidebarRight, "HUD", Category.HUD);
-		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 90, sidebarRight, "Assistance", Category.ASSISTANCE);
+		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 90, sidebarRight, "Debug", Category.DEBUG);
 
 		int dividerX = panelX + SIDEBAR_WIDTH + 4;
 		graphics.fill(dividerX, panelY + HEADER_HEIGHT + 10, dividerX + 1, panelY + panelHeight - 12, 0x665E6672);
@@ -225,9 +256,23 @@ public class WinterScreen extends Screen {
 	}
 
 	private void renderAssistance(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
-		boolean enabled = AutoRevive.isEnabled();
+		boolean reviveEnabled = AutoRevive.isEnabled();
 		drawModuleRow(graphics, contentX, contentRight, contentTop,
-			"Auto Revive: " + (enabled ? "ON" : "OFF"), enabled);
+			"Auto Revive: " + (reviveEnabled ? "ON" : "OFF"), reviveEnabled);
+		boolean freecamEnabled = Freecam.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 27,
+			"Freecam: " + (freecamEnabled ? "ON" : "OFF"), freecamEnabled);
+		if (expandedModule == 20) {
+			String bind = waitingForFreecamBind ? "Press a key..." : Freecam.getBindKey() == GLFW.GLFW_KEY_UNKNOWN
+				? "None" : InputConstants.Type.KEYSYM.getOrCreate(Freecam.getBindKey()).getDisplayName().getString();
+			int bindY = contentTop + 54;
+			graphics.fill(contentX, bindY, contentRight, bindY + 22, waitingForFreecamBind ? 0xAA245A50 : 0xAA303640);
+			graphics.drawString(font, "Bind (key)", contentX + 8, bindY + 7, 0xFFEAF7FC, false);
+			graphics.drawString(font, bind, contentRight - font.width(bind) - 8, bindY + 7, 0xFF9AA3AF, false);
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 84, "Speed",
+				String.format(Locale.ROOT, "%.2f blocks/tick", Freecam.getSpeed()));
+			drawSlider(graphics, contentX, contentRight, freecamSliderY(), (Freecam.getSpeed() - 0.1) / 1.9);
+		}
 	}
 
 	private void drawSettingLabel(GuiGraphics graphics, int left, int right, int y, String name, String value) {
@@ -256,6 +301,7 @@ public class WinterScreen extends Screen {
 	private int lifetimeSliderY() { return contentTop() + 178; }
 	private int thicknessSliderY() { return contentTop() + 213; }
 	private int rangeSliderY() { return contentTop() + 181; }
+	private int freecamSliderY() { return contentTop() + 101; }
 
 	private void updateSlider(double mouseX) {
 		double progress = Math.max(0.0, Math.min(1.0, (mouseX - contentLeft()) / (contentRight() - contentLeft())));
@@ -272,6 +318,8 @@ public class WinterScreen extends Screen {
 			TeamEsp.setRenderDistance(16 + (int) Math.round(progress * 112.0));
 		} else if (activeSlider == 5) {
 			PowerupEsp.setRenderDistance(16 + (int) Math.round(progress * 112.0));
+		} else if (activeSlider == 6) {
+			Freecam.setSpeed(0.1 + progress * 1.9);
 		}
 	}
 
@@ -314,22 +362,22 @@ public class WinterScreen extends Screen {
 		int sidebarY = panelY + HEADER_HEIGHT + 12;
 		if (event.button() == 0 && event.x() >= sidebarX && event.x() < panelX + SIDEBAR_WIDTH) {
 			if (event.y() >= sidebarY && event.y() < sidebarY + 24) {
-				selectedCategory = Category.DEBUG;
+				setSelectedCategory(Category.ASSISTANCE);
 				scrollOffset = 0;
 				return true;
 			}
 			if (event.y() >= sidebarY + 30 && event.y() < sidebarY + 54) {
-				selectedCategory = Category.VISUALS;
+				setSelectedCategory(Category.VISUALS);
 				scrollOffset = 0;
 				return true;
 			}
 			if (event.y() >= sidebarY + 60 && event.y() < sidebarY + 84) {
-				selectedCategory = Category.HUD;
+				setSelectedCategory(Category.HUD);
 				scrollOffset = 0;
 				return true;
 			}
 			if (event.y() >= sidebarY + 90 && event.y() < sidebarY + 114) {
-				selectedCategory = Category.ASSISTANCE;
+				setSelectedCategory(Category.DEBUG);
 				scrollOffset = 0;
 				return true;
 			}
@@ -351,7 +399,7 @@ public class WinterScreen extends Screen {
 				if (event.y() >= top + 52 && event.y() <= top + 73) {
 					if (event.button() == 0) AreaSelector.toggle();
 					else if (event.button() == 1)
-						expandedModule = expandedModule == DEBUG_AREA_EXPANSION ? -1 : DEBUG_AREA_EXPANSION;
+						setExpandedModule(expandedModule == DEBUG_AREA_EXPANSION ? -1 : DEBUG_AREA_EXPANSION);
 					return true;
 				}
 				if (expandedModule == DEBUG_AREA_EXPANSION && event.button() == 0
@@ -364,40 +412,54 @@ public class WinterScreen extends Screen {
 					WinterHud.toggleWatermark();
 					return true;
 				}
-			} else if (selectedCategory == Category.ASSISTANCE && event.button() == 0) {
-				if (event.y() >= top && event.y() <= top + 21) {
+			} else if (selectedCategory == Category.ASSISTANCE) {
+				if (event.button() == 0 && event.y() >= top && event.y() <= top + 21) {
 					AutoRevive.toggle();
+					return true;
+				}
+				if (event.y() >= top + 27 && event.y() <= top + 48) {
+					if (event.button() == 0) Freecam.toggle();
+					else if (event.button() == 1) setExpandedModule(expandedModule == 20 ? -1 : 20);
+					return true;
+				}
+				if (expandedModule == 20 && event.button() == 0 && event.y() >= top + 54 && event.y() <= top + 76) {
+					waitingForFreecamBind = true;
+					return true;
+				}
+				if (expandedModule == 20 && event.button() == 0 && Math.abs(event.y() - freecamSliderY()) <= 6) {
+					activeSlider = 6;
+					updateSlider(event.x());
 					return true;
 				}
 			} else if (selectedCategory == Category.VISUALS) {
 				if (event.y() >= top && event.y() <= top + 21) {
 					if (event.button() == 0) BulletTracers.toggle();
-					else if (event.button() == 1) expandedModule = expandedModule == 0 ? -1 : 0;
+					else if (event.button() == 1) setExpandedModule(expandedModule == 0 ? -1 : 0);
 					return true;
 				}
 				if (event.y() >= top + 27 && event.y() <= top + 48) {
 					if (event.button() == 0) LuckyChestEsp.toggle();
-					else if (event.button() == 1) expandedModule = expandedModule == 1 ? -1 : 1;
+					else if (event.button() == 1) setExpandedModule(expandedModule == 1 ? -1 : 1);
 					return true;
 				}
 				if (event.y() >= top + 54 && event.y() <= top + 75) {
 					if (event.button() == 0) MobEsp.toggle();
-					else if (event.button() == 1) expandedModule = expandedModule == 2 ? -1 : 2;
+					else if (event.button() == 1) setExpandedModule(expandedModule == 2 ? -1 : 2);
 					return true;
 				}
 				if (event.y() >= top + 81 && event.y() <= top + 102) {
 					if (event.button() == 0) TeamEsp.toggle();
-					else if (event.button() == 1) expandedModule = expandedModule == 3 ? -1 : 3;
+					else if (event.button() == 1) setExpandedModule(expandedModule == 3 ? -1 : 3);
 					return true;
 				}
 				if (event.y() >= top + 108 && event.y() <= top + 129) {
 					if (event.button() == 0) PowerupEsp.toggle();
-					else if (event.button() == 1) expandedModule = expandedModule == 4 ? -1 : 4;
+					else if (event.button() == 1) setExpandedModule(expandedModule == 4 ? -1 : 4);
 					return true;
 				}
 				if (event.y() >= top + 135 && event.y() <= top + 156) {
 					if (event.button() == 0) BrokenWindowEsp.toggle();
-					else if (event.button() == 1) expandedModule = expandedModule == 5 ? -1 : 5;
+					else if (event.button() == 1) setExpandedModule(expandedModule == 5 ? -1 : 5);
 					return true;
 				}
 				if (expandedModule == 5 && event.button() == 0
@@ -420,6 +482,24 @@ public class WinterScreen extends Screen {
 			}
 		}
 		return super.mouseClicked(event, doubleClick);
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (waitingForFreecamBind) {
+			int key = event.key();
+			if (key == GLFW.GLFW_KEY_ESCAPE) {
+				waitingForFreecamBind = false;
+			} else if (key == GLFW.GLFW_KEY_BACKSPACE || key == GLFW.GLFW_KEY_DELETE) {
+				Freecam.setBindKey(GLFW.GLFW_KEY_UNKNOWN);
+				waitingForFreecamBind = false;
+			} else if (key != GLFW.GLFW_KEY_UNKNOWN) {
+				Freecam.setBindKey(key);
+				waitingForFreecamBind = false;
+			}
+			return true;
+		}
+		return super.keyPressed(event);
 	}
 
 	@Override

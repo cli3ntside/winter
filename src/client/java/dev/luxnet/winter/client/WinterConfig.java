@@ -3,6 +3,7 @@ package dev.luxnet.winter.client;
 import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.assistance.AutoRevive;
+import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -53,6 +54,13 @@ public final class WinterConfig {
 			BrokenWindowEsp.setSelectedMap(VALUES.getProperty("visuals.brokenWindowEsp.map", "deadend"));
 			WinterHud.setWatermarkEnabled(booleanValue("hud.watermark", true));
 			AutoRevive.setEnabled(booleanValue("assistance.autoRevive", false));
+			Freecam.setBindKey(intValue("assistance.freecam.bind", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN));
+			double freecamSpeed = doubleValue("assistance.freecam.speed", 0.80);
+			if (Math.abs(freecamSpeed - 0.45) < 0.000001) freecamSpeed = 0.80;
+			Freecam.setSpeed(freecamSpeed);
+			Freecam.setEnabled(false);
+			WinterScreen.loadMenuState(VALUES.getProperty("menu.category", "ASSISTANCE"),
+				intValue("menu.expandedModule", -1));
 		} catch (IOException exception) {
 			System.err.println("[Winter] Could not load config: " + exception.getMessage());
 		} finally {
@@ -81,6 +89,10 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.brokenWindowEsp.map", BrokenWindowEsp.getSelectedMapId());
 		VALUES.setProperty("hud.watermark", Boolean.toString(WinterHud.isWatermarkEnabled()));
 		VALUES.setProperty("assistance.autoRevive", Boolean.toString(AutoRevive.isEnabled()));
+		VALUES.setProperty("assistance.freecam.bind", Integer.toString(Freecam.getBindKey()));
+		VALUES.setProperty("assistance.freecam.speed", Double.toString(Freecam.getSpeed()));
+		VALUES.setProperty("menu.category", WinterScreen.getSelectedCategoryName());
+		VALUES.setProperty("menu.expandedModule", Integer.toString(WinterScreen.getExpandedModule()));
 		try {
 			Files.createDirectories(configFile.getParent());
 			try (OutputStream output = Files.newOutputStream(configFile)) {
@@ -103,6 +115,11 @@ public final class WinterConfig {
 
 	private static float floatValue(String key, float fallback) {
 		try { return Float.parseFloat(VALUES.getProperty(key)); }
+		catch (RuntimeException ignored) { return fallback; }
+	}
+
+	private static double doubleValue(String key, double fallback) {
+		try { return Double.parseDouble(VALUES.getProperty(key)); }
 		catch (RuntimeException ignored) { return fallback; }
 	}
 }

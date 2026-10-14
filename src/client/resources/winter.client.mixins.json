@@ -5,7 +5,10 @@
 	"client": [
 		"WinterClientMixin",
 		"ShotTraceConnectionMixin",
-		"ShotTracePacketMixin"
+		"ShotTracePacketMixin",
+		"FreecamCameraMixin",
+		"FreecamMouseMixin",
+		"FreecamInputMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
