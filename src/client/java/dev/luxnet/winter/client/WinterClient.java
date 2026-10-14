@@ -2,11 +2,14 @@ package dev.luxnet.winter.client;
 
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.debug.MobDebugModule;
+import dev.luxnet.winter.client.debug.AreaSelector;
+import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
 import dev.luxnet.winter.client.visuals.MobEsp;
 import dev.luxnet.winter.client.visuals.TeamEsp;
 import dev.luxnet.winter.client.visuals.PowerupEsp;
+import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -22,11 +25,13 @@ public class WinterClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		WinterHud.register();
 		WinterConfig.load(Minecraft.getInstance());
+		AreaSelector.register();
 		BulletTracers.registerWorldRender();
 		LuckyChestEsp.registerWorldRender();
 		MobEsp.registerWorldRender();
 		TeamEsp.registerWorldRender();
 		PowerupEsp.registerWorldRender();
+		BrokenWindowEsp.registerWorldRender();
 
 		openMenuKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
 			"key.winter.open_menu",
@@ -41,6 +46,8 @@ public class WinterClient implements ClientModInitializer {
 			MobEsp.tick(client);
 			TeamEsp.tick(client);
 			PowerupEsp.tick(client);
+			BrokenWindowEsp.tick(client);
+			AutoRevive.tick(client);
 			if (client.player != null) {
 				ShotDebugModule.recordSneakState(client.player.isShiftKeyDown());
 			}

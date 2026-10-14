@@ -16,7 +16,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-final class EspBoxRenderer {
+public final class EspBoxRenderer {
 	private static final RenderPipeline THROUGH_WALL_LINES = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
 		.withLocation(Identifier.fromNamespaceAndPath("winter", "esp_box_lines"))
 		.withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, VertexFormat.Mode.LINES)
@@ -29,7 +29,7 @@ final class EspBoxRenderer {
 
 	private EspBoxRenderer() { }
 
-	static void draw(WorldRenderContext context, AABB worldBox, int color, float width) {
+	public static void draw(WorldRenderContext context, AABB worldBox, int color, float width) {
 		Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
 		AABB box = worldBox.move(-camera.x, -camera.y, -camera.z).inflate(0.002);
 		VertexConsumer lines = context.consumers().getBuffer(BOX_LINES);

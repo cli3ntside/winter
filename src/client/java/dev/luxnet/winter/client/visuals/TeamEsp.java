@@ -259,7 +259,7 @@ public final class TeamEsp {
 
 	}
 
-	private static boolean isZombiesGame(Minecraft minecraft) {
+	public static boolean isZombiesGame(Minecraft minecraft) {
 		var scoreboard = minecraft.level.getScoreboard();
 		Objective sidebar = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
 		if (sidebar == null) return false;

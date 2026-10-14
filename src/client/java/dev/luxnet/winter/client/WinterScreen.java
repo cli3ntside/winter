@@ -1,16 +1,20 @@
 package dev.luxnet.winter.client;
 
 import dev.luxnet.winter.client.debug.MobDebugModule;
+import dev.luxnet.winter.client.debug.AreaSelector;
+import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
 import dev.luxnet.winter.client.visuals.MobEsp;
 import dev.luxnet.winter.client.visuals.TeamEsp;
 import dev.luxnet.winter.client.visuals.PowerupEsp;
+import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.WinterHud;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -23,6 +27,7 @@ public class WinterScreen extends Screen {
 	private static final int HEADER_HEIGHT = 58;
 	private static final int CONTENT_PADDING = 14;
 	private static final int EVENT_ROW_HEIGHT = 13;
+	private static final int DEBUG_AREA_EXPANSION = 10;
 
 	private int panelX;
 	private int panelY;
@@ -33,7 +38,7 @@ public class WinterScreen extends Screen {
 	private int expandedModule = -1;
 	private Category selectedCategory = Category.DEBUG;
 
-	private enum Category { DEBUG, VISUALS, HUD }
+	private enum Category { DEBUG, VISUALS, HUD, ASSISTANCE }
 
 	public WinterScreen() {
 		super(Component.literal("Winter"));
@@ -64,6 +69,7 @@ public class WinterScreen extends Screen {
 		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY, sidebarRight, "Debug", Category.DEBUG);
 		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 30, sidebarRight, "Visuals", Category.VISUALS);
 		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 60, sidebarRight, "HUD", Category.HUD);
+		drawCategoryTab(graphics, mouseX, mouseY, sidebarX, sidebarY + 90, sidebarRight, "Assistance", Category.ASSISTANCE);
 
 		int dividerX = panelX + SIDEBAR_WIDTH + 4;
 		graphics.fill(dividerX, panelY + HEADER_HEIGHT + 10, dividerX + 1, panelY + panelHeight - 12, 0x665E6672);
@@ -76,8 +82,10 @@ public class WinterScreen extends Screen {
 			renderDebug(graphics, mouseX, mouseY, contentX, contentTop, contentBottom, contentRight);
 		} else if (selectedCategory == Category.VISUALS) {
 			renderVisuals(graphics, contentX, contentTop, contentRight);
-		} else {
+		} else if (selectedCategory == Category.HUD) {
 			renderHud(graphics, contentX, contentTop, contentRight);
+		} else {
+			renderAssistance(graphics, contentX, contentTop, contentRight);
 		}
 		graphics.disableScissor();
 		super.render(graphics, mouseX, mouseY, delta);
@@ -102,9 +110,37 @@ public class WinterScreen extends Screen {
 		String mobsLabel = "Detect Mobs: " + (mobsEnabled ? "ON" : "OFF");
 		if (mobsEnabled) mobsLabel += " (" + MobDebugModule.getSnapshots().size() + ")";
 		drawModuleRow(graphics, contentX, contentRight, mobsY, mobsLabel, mobsEnabled);
+		int areaY = contentTop + 52;
+		boolean areaEnabled = AreaSelector.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, areaY,
+			"Area Selector: " + (areaEnabled ? "ON" : "OFF"), areaEnabled);
+
+		int eventsTop = debugEventsTop();
+		if (expandedModule == DEBUG_AREA_EXPANSION) {
+			BlockPos first = AreaSelector.getFirstCorner();
+			BlockPos second = AreaSelector.getSecondCorner();
+			String firstText = first == null ? "Point 1: right click a block" : "Point 1: " + coordinates(first);
+			String secondText = second == null ? (first == null ? "Point 2: —" : "Point 2: right click a block")
+				: "Point 2: " + coordinates(second);
+			graphics.drawString(font, trimToWidth(firstText, contentRight - contentX), contentX + 2,
+				contentTop + 80, 0xFFD5DCE5, false);
+			graphics.drawString(font, trimToWidth(secondText, contentRight - contentX), contentX + 2,
+				contentTop + 93, 0xFFD5DCE5, false);
+			int saveY = contentTop + 108;
+			boolean canSave = AreaSelector.canSave();
+			boolean hovered = mouseX >= contentX && mouseX <= contentRight && mouseY >= saveY && mouseY < saveY + 20;
+			graphics.fill(contentX, saveY, contentRight, saveY + 20,
+				canSave ? (hovered ? 0xCC337D8E : 0xAA285E6A) : 0xAA303640);
+			String saveLabel = "Save area  ·  " + AreaSelector.getSavedAreaCount() + " saved";
+			graphics.drawString(font, saveLabel, contentX + 8, saveY + 6,
+				canSave ? 0xFFEAF7FC : 0xFF9AA3AF, false);
+			if (!AreaSelector.getSaveStatus().isEmpty()) {
+				graphics.drawString(font, trimToWidth(AreaSelector.getSaveStatus(), contentRight - contentX),
+					contentX + 2, contentTop + 132, 0xFF9AA3AF, false);
+			}
+		}
 
 		List<String> events = ShotDebugModule.getEvents();
-		int eventsTop = contentTop + 54;
 		if (events.isEmpty()) {
 			graphics.drawString(font, "Enable capture, then test", contentX, eventsTop - scrollOffset, 0xFF9AA3AF, false);
 			return;
@@ -120,6 +156,14 @@ public class WinterScreen extends Screen {
 				}
 			}
 		}
+	}
+
+	private int debugEventsTop() {
+		return contentTop() + (expandedModule == DEBUG_AREA_EXPANSION ? 152 : 80);
+	}
+
+	private static String coordinates(BlockPos pos) {
+		return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
 	}
 
 	private void renderVisuals(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
@@ -138,6 +182,9 @@ public class WinterScreen extends Screen {
 		boolean powerupEspEnabled = PowerupEsp.isEnabled();
 		drawModuleRow(graphics, contentX, contentRight, contentTop + 108,
 			"Powerup ESP: " + (powerupEspEnabled ? "ON" : "OFF"), powerupEspEnabled);
+		boolean brokenWindowEspEnabled = BrokenWindowEsp.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 135,
+			"Broken Window ESP: " + (brokenWindowEspEnabled ? "ON" : "OFF"), brokenWindowEspEnabled);
 		if (expandedModule == 0) {
 			drawSettingLabel(graphics, contentX, contentRight, contentTop + 163, "Lifetime",
 				String.format(Locale.ROOT, "%.2fs", BulletTracers.getLifetimeMs() / 1000.0));
@@ -161,6 +208,13 @@ public class WinterScreen extends Screen {
 			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
 				PowerupEsp.getRenderDistance() + " blocks");
 			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(PowerupEsp.getRenderDistance()));
+		} else if (expandedModule == 5) {
+			int mapY = contentTop + 163;
+			graphics.fill(contentX, mapY, contentRight, mapY + 22, 0xAA303640);
+			graphics.drawString(font, "Map", contentX + 8, mapY + 7, 0xFFEAF7FC, false);
+			String mapName = BrokenWindowEsp.getSelectedMapName();
+			graphics.drawString(font, mapName + "  ‹ ›", contentRight - font.width(mapName + "  ‹ ›") - 8,
+				mapY + 7, 0xFF9FFFD7, false);
 		}
 	}
 
@@ -168,6 +222,12 @@ public class WinterScreen extends Screen {
 		boolean enabled = WinterHud.isWatermarkEnabled();
 		drawModuleRow(graphics, contentX, contentRight, contentTop,
 			"Watermark: " + (enabled ? "ON" : "OFF"), enabled);
+	}
+
+	private void renderAssistance(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
+		boolean enabled = AutoRevive.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop,
+			"Auto Revive: " + (enabled ? "ON" : "OFF"), enabled);
 	}
 
 	private void drawSettingLabel(GuiGraphics graphics, int left, int right, int y, String name, String value) {
@@ -268,24 +328,45 @@ public class WinterScreen extends Screen {
 				scrollOffset = 0;
 				return true;
 			}
+			if (event.y() >= sidebarY + 90 && event.y() < sidebarY + 114) {
+				selectedCategory = Category.ASSISTANCE;
+				scrollOffset = 0;
+				return true;
+			}
 		}
 
 		int left = contentLeft();
 		int right = contentRight();
 		int top = contentTop();
 		if (event.x() >= left && event.x() <= right) {
-			if (selectedCategory == Category.DEBUG && event.button() == 0) {
-				if (event.y() >= top && event.y() <= top + 21) {
+			if (selectedCategory == Category.DEBUG) {
+				if (event.button() == 0 && event.y() >= top && event.y() <= top + 21) {
 					ShotDebugModule.toggle();
 					return true;
 				}
-				if (event.y() >= top + 26 && event.y() <= top + 47) {
+				if (event.button() == 0 && event.y() >= top + 26 && event.y() <= top + 47) {
 					MobDebugModule.toggle();
+					return true;
+				}
+				if (event.y() >= top + 52 && event.y() <= top + 73) {
+					if (event.button() == 0) AreaSelector.toggle();
+					else if (event.button() == 1)
+						expandedModule = expandedModule == DEBUG_AREA_EXPANSION ? -1 : DEBUG_AREA_EXPANSION;
+					return true;
+				}
+				if (expandedModule == DEBUG_AREA_EXPANSION && event.button() == 0
+					&& event.y() >= top + 108 && event.y() < top + 128) {
+					AreaSelector.saveCurrentArea();
 					return true;
 				}
 			} else if (selectedCategory == Category.HUD && event.button() == 0) {
 				if (event.y() >= top && event.y() <= top + 21) {
 					WinterHud.toggleWatermark();
+					return true;
+				}
+			} else if (selectedCategory == Category.ASSISTANCE && event.button() == 0) {
+				if (event.y() >= top && event.y() <= top + 21) {
+					AutoRevive.toggle();
 					return true;
 				}
 			} else if (selectedCategory == Category.VISUALS) {
@@ -312,6 +393,16 @@ public class WinterScreen extends Screen {
 				if (event.y() >= top + 108 && event.y() <= top + 129) {
 					if (event.button() == 0) PowerupEsp.toggle();
 					else if (event.button() == 1) expandedModule = expandedModule == 4 ? -1 : 4;
+					return true;
+				}
+				if (event.y() >= top + 135 && event.y() <= top + 156) {
+					if (event.button() == 0) BrokenWindowEsp.toggle();
+					else if (event.button() == 1) expandedModule = expandedModule == 5 ? -1 : 5;
+					return true;
+				}
+				if (expandedModule == 5 && event.button() == 0
+					&& event.y() >= top + 163 && event.y() <= top + 185) {
+					BrokenWindowEsp.cycleMap();
 					return true;
 				}
 				if (expandedModule != -1 && event.button() == 0) {
@@ -357,7 +448,8 @@ public class WinterScreen extends Screen {
 		int contentBottom = panelY + panelHeight - 12;
 		if (selectedCategory == Category.DEBUG && mouseX >= contentLeft && mouseX <= contentRight
 			&& mouseY >= contentTop && mouseY <= contentBottom) {
-			int visibleHeight = contentBottom - (contentTop + 54);
+			int eventsTop = debugEventsTop();
+			int visibleHeight = contentBottom - eventsTop;
 			int maxScroll = Math.max(0, ShotDebugModule.getEvents().size() * EVENT_ROW_HEIGHT - visibleHeight);
 			scrollOffset = Math.max(0, Math.min(maxScroll,
 				scrollOffset - (int) Math.signum(verticalAmount) * 12));

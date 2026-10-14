@@ -2,7 +2,9 @@ package dev.luxnet.winter.client;
 
 import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
+import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.visuals.BulletTracers;
+import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
 import dev.luxnet.winter.client.visuals.MobEsp;
 import dev.luxnet.winter.client.visuals.PowerupEsp;
@@ -47,7 +49,10 @@ public final class WinterConfig {
 			TeamEsp.setRenderDistance(intValue("visuals.teamEsp.range", 64));
 			PowerupEsp.setEnabled(booleanValue("visuals.powerupEsp", false));
 			PowerupEsp.setRenderDistance(intValue("visuals.powerupEsp.range", 64));
+			BrokenWindowEsp.setEnabled(booleanValue("visuals.brokenWindowEsp", false));
+			BrokenWindowEsp.setSelectedMap(VALUES.getProperty("visuals.brokenWindowEsp.map", "deadend"));
 			WinterHud.setWatermarkEnabled(booleanValue("hud.watermark", true));
+			AutoRevive.setEnabled(booleanValue("assistance.autoRevive", false));
 		} catch (IOException exception) {
 			System.err.println("[Winter] Could not load config: " + exception.getMessage());
 		} finally {
@@ -72,7 +77,10 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.teamEsp.range", Integer.toString(TeamEsp.getRenderDistance()));
 		VALUES.setProperty("visuals.powerupEsp", Boolean.toString(PowerupEsp.isEnabled()));
 		VALUES.setProperty("visuals.powerupEsp.range", Integer.toString(PowerupEsp.getRenderDistance()));
+		VALUES.setProperty("visuals.brokenWindowEsp", Boolean.toString(BrokenWindowEsp.isEnabled()));
+		VALUES.setProperty("visuals.brokenWindowEsp.map", BrokenWindowEsp.getSelectedMapId());
 		VALUES.setProperty("hud.watermark", Boolean.toString(WinterHud.isWatermarkEnabled()));
+		VALUES.setProperty("assistance.autoRevive", Boolean.toString(AutoRevive.isEnabled()));
 		try {
 			Files.createDirectories(configFile.getParent());
 			try (OutputStream output = Files.newOutputStream(configFile)) {
