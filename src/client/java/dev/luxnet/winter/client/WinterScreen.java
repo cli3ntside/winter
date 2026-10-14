@@ -231,6 +231,8 @@ public class WinterScreen extends Screen {
 			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
 				MobEsp.getRenderDistance() + " blocks");
 			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(MobEsp.getRenderDistance()));
+			drawModuleRow(graphics, contentX, contentRight, contentTop + 201,
+				"Damage Blink: " + (MobEsp.isDamageBlinkEnabled() ? "ON" : "OFF"), MobEsp.isDamageBlinkEnabled());
 		} else if (expandedModule == 3) {
 			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
 				TeamEsp.getRenderDistance() + " blocks");
@@ -465,6 +467,11 @@ public class WinterScreen extends Screen {
 				if (expandedModule == 5 && event.button() == 0
 					&& event.y() >= top + 163 && event.y() <= top + 185) {
 					BrokenWindowEsp.cycleMap();
+					return true;
+				}
+				if (expandedModule == 2 && event.button() == 0
+					&& event.y() >= top + 201 && event.y() <= top + 222) {
+					MobEsp.setDamageBlinkEnabled(!MobEsp.isDamageBlinkEnabled());
 					return true;
 				}
 				if (expandedModule != -1 && event.button() == 0) {

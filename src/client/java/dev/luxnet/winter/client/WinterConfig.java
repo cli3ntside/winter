@@ -46,6 +46,7 @@ public final class WinterConfig {
 			LuckyChestEsp.setRenderDistance(intValue("visuals.luckyChestEsp.range", 64));
 			MobEsp.setEnabled(booleanValue("visuals.mobEsp", false));
 			MobEsp.setRenderDistance(intValue("visuals.mobEsp.range", 64));
+			MobEsp.setDamageBlinkEnabled(booleanValue("visuals.mobEsp.damageBlink", true));
 			TeamEsp.setEnabled(booleanValue("visuals.teamEsp", false));
 			TeamEsp.setRenderDistance(intValue("visuals.teamEsp.range", 64));
 			PowerupEsp.setEnabled(booleanValue("visuals.powerupEsp", false));
@@ -81,6 +82,7 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.luckyChestEsp.range", Integer.toString(LuckyChestEsp.getRenderDistance()));
 		VALUES.setProperty("visuals.mobEsp", Boolean.toString(MobEsp.isEnabled()));
 		VALUES.setProperty("visuals.mobEsp.range", Integer.toString(MobEsp.getRenderDistance()));
+		VALUES.setProperty("visuals.mobEsp.damageBlink", Boolean.toString(MobEsp.isDamageBlinkEnabled()));
 		VALUES.setProperty("visuals.teamEsp", Boolean.toString(TeamEsp.isEnabled()));
 		VALUES.setProperty("visuals.teamEsp.range", Integer.toString(TeamEsp.getRenderDistance()));
 		VALUES.setProperty("visuals.powerupEsp", Boolean.toString(PowerupEsp.isEnabled()));
