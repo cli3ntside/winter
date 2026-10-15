@@ -50,6 +50,19 @@ public final class BrokenWindowEsp {
 		window(-46, 85, 33, -46, 84, 32),
 		window(-33, 85, 29, -32, 84, 29)
 	);
+	private static final List<WindowArea> ARCADE_AREAS = List.of(
+		window(1, 74, 29, -1, 73, 29),
+		window(-15, 74, 18, -15, 73, 16),
+		window(-15, 74, 8, -15, 73, 6),
+		window(-7, 74, -2, -7, 73, -4),
+		window(15, 74, 9, 15, 73, 11),
+		window(24, 75, -10, 26, 74, -10),
+		window(29, 75, 0, 29, 74, 2),
+		window(23, 74, 26, 23, 73, 28),
+		window(15, 74, 40, 13, 73, 40),
+		window(-25, 74, 25, -25, 73, 23),
+		window(-15, 74, 35, -17, 73, 35)
+	);
 	private static final List<AABB> BROKEN_WINDOWS = new ArrayList<>();
 	private static boolean enabled;
 	private static Map selectedMap = Map.DEAD_END;
@@ -137,6 +150,7 @@ public final class BrokenWindowEsp {
 	private static List<WindowArea> areasForSelectedMap() {
 		return switch (selectedMap) {
 			case DEAD_END -> DEAD_END_AREAS;
+			case ARCADE -> ARCADE_AREAS;
 		};
 	}
 
@@ -154,7 +168,8 @@ public final class BrokenWindowEsp {
 	}
 
 	private enum Map {
-		DEAD_END("deadend", "Dead End");
+		DEAD_END("deadend", "Dead End"),
+		ARCADE("arcade", "Arcade");
 
 		private final String id;
 		private final String displayName;
