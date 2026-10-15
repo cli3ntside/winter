@@ -116,21 +116,27 @@ public final class MobEsp {
 		if (minecraft.level == null || minecraft.player == null) return;
 		Vec3 camera = minecraft.gameRenderer.getMainCamera().position();
 		double distance = Math.min(SEARCH_RADIUS, renderDistance);
+		float tickDelta = minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		for (Entity entity : TARGETS) {
 			if (entity.level() != minecraft.level || !isMobTarget(entity)
 				|| entity.position().distanceToSqr(camera) > distance * distance) continue;
 			int color = BossDetector.isBoss(entity) ? BOSS_COLOR : MOB_COLOR;
+			double interpolatedX = entity.xo + (entity.getX() - entity.xo) * tickDelta;
+			double interpolatedY = entity.yo + (entity.getY() - entity.yo) * tickDelta;
+			double interpolatedZ = entity.zo + (entity.getZ() - entity.zo) * tickDelta;
+			var box = entity.getBoundingBox().move(interpolatedX - entity.getX(),
+				interpolatedY - entity.getY(), interpolatedZ - entity.getZ());
 			if (damageBlinkEnabled && entity instanceof LivingEntity) {
 				DamageState state = DAMAGE_STATES.get(entity);
 				if (state != null && state.damagedAt > 0) {
 					long remaining = DAMAGE_BLINK_DURATION_NS - (System.nanoTime() - state.damagedAt);
 					if (remaining > 0) {
 						int alpha = (int) (0x80 * (remaining / (double) DAMAGE_BLINK_DURATION_NS));
-						EspBoxRenderer.drawFilled(context, entity.getBoundingBox(), alpha << 24 | 0x00FF3030);
+						EspBoxRenderer.drawFilled(context, box, alpha << 24 | 0x00FF3030);
 					}
 				}
 			}
-			EspBoxRenderer.draw(context, entity.getBoundingBox(), color, 2.0F);
+			EspBoxRenderer.draw(context, box, color, 2.0F);
 		}
 	}
 

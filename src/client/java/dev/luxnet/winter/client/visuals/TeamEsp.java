@@ -291,16 +291,22 @@ public final class TeamEsp {
 		if (minecraft.level == null || minecraft.player == null) return;
 		Vec3 camera = minecraft.gameRenderer.getMainCamera().position();
 		double distance = Math.min(MAX_RANGE, renderDistance);
+		float tickDelta = minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		for (Player player : TARGETS) {
 			if (player.level() != minecraft.level || !hasPlayerName(player)
-				|| (isDowned(player) ? !isRenderableDownedPlayer(player) : !isActivePlayer(player))
-				|| player.position().distanceToSqr(camera) > distance * distance) continue;
+				|| (isDowned(player) ? !isRenderableDownedPlayer(player) : !isActivePlayer(player))) continue;
+			double x = player.xo + (player.getX() - player.xo) * tickDelta;
+			double y = player.yo + (player.getY() - player.yo) * tickDelta;
+			double z = player.zo + (player.getZ() - player.zo) * tickDelta;
+			double dx = x - camera.x, dy = y - camera.y, dz = z - camera.z;
+			if (dx * dx + dy * dy + dz * dz > distance * distance) continue;
+			var box = player.getBoundingBox().move(x - player.getX(), y - player.getY(), z - player.getZ());
 			if (isDowned(player)) {
-				EspBoxRenderer.draw(context, player.getBoundingBox(), DOWNED_COLOR, 2.5F);
+				EspBoxRenderer.draw(context, box, DOWNED_COLOR, 2.5F);
 				EspBoxRenderer.drawLabel(context,
-					new Vec3(player.getX(), player.getBoundingBox().maxY + 0.25, player.getZ()), "REVIVE", DOWNED_COLOR);
+					new Vec3(x, box.maxY + 0.25, z), "REVIVE", DOWNED_COLOR);
 			} else {
-				EspBoxRenderer.draw(context, player.getBoundingBox(), TEAM_COLOR, 2.0F);
+				EspBoxRenderer.draw(context, box, TEAM_COLOR, 2.0F);
 			}
 		}
 	}

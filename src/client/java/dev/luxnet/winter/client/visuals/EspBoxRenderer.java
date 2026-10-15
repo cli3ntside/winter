@@ -19,9 +19,10 @@ import net.minecraft.world.phys.Vec3;
 public final class EspBoxRenderer {
 	private static final RenderPipeline THROUGH_WALL_LINES = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
 		.withLocation(Identifier.fromNamespaceAndPath("winter", "esp_box_lines"))
-		.withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, VertexFormat.Mode.LINES)
+		.withVertexFormat(DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH, VertexFormat.Mode.LINES)
 		.withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
 		.withDepthWrite(false)
+		.withCull(false)
 		.withBlend(BlendFunction.TRANSLUCENT)
 		.build();
 	private static final RenderType BOX_LINES = RenderType.create("winter_esp_box_lines",
@@ -40,25 +41,28 @@ public final class EspBoxRenderer {
 	private EspBoxRenderer() { }
 
 	public static void draw(WorldRenderContext context, AABB worldBox, int color, float width) {
+		if (context.consumers() == null || context.matrices() == null || !isInFrustum(context, worldBox)) return;
 		Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
 		AABB box = worldBox.move(-camera.x, -camera.y, -camera.z).inflate(0.002);
 		VertexConsumer lines = context.consumers().getBuffer(BOX_LINES);
 		var pose = context.matrices().last();
-		drawLine(lines, pose, box.minX, box.minY, box.minZ, box.maxX, box.minY, box.minZ, color, width);
-		drawLine(lines, pose, box.maxX, box.minY, box.minZ, box.maxX, box.minY, box.maxZ, color, width);
-		drawLine(lines, pose, box.maxX, box.minY, box.maxZ, box.minX, box.minY, box.maxZ, color, width);
-		drawLine(lines, pose, box.minX, box.minY, box.maxZ, box.minX, box.minY, box.minZ, color, width);
-		drawLine(lines, pose, box.minX, box.maxY, box.minZ, box.maxX, box.maxY, box.minZ, color, width);
-		drawLine(lines, pose, box.maxX, box.maxY, box.minZ, box.maxX, box.maxY, box.maxZ, color, width);
-		drawLine(lines, pose, box.maxX, box.maxY, box.maxZ, box.minX, box.maxY, box.maxZ, color, width);
-		drawLine(lines, pose, box.minX, box.maxY, box.maxZ, box.minX, box.maxY, box.minZ, color, width);
-		drawLine(lines, pose, box.minX, box.minY, box.minZ, box.minX, box.maxY, box.minZ, color, width);
-		drawLine(lines, pose, box.maxX, box.minY, box.minZ, box.maxX, box.maxY, box.minZ, color, width);
-		drawLine(lines, pose, box.maxX, box.minY, box.maxZ, box.maxX, box.maxY, box.maxZ, color, width);
-		drawLine(lines, pose, box.minX, box.minY, box.maxZ, box.minX, box.maxY, box.maxZ, color, width);
+		int visibleColor = color | 0xFF000000;
+		drawLine(lines, pose, box.minX, box.minY, box.minZ, box.maxX, box.minY, box.minZ, visibleColor, width);
+		drawLine(lines, pose, box.maxX, box.minY, box.minZ, box.maxX, box.minY, box.maxZ, visibleColor, width);
+		drawLine(lines, pose, box.maxX, box.minY, box.maxZ, box.minX, box.minY, box.maxZ, visibleColor, width);
+		drawLine(lines, pose, box.minX, box.minY, box.maxZ, box.minX, box.minY, box.minZ, visibleColor, width);
+		drawLine(lines, pose, box.minX, box.maxY, box.minZ, box.maxX, box.maxY, box.minZ, visibleColor, width);
+		drawLine(lines, pose, box.maxX, box.maxY, box.minZ, box.maxX, box.maxY, box.maxZ, visibleColor, width);
+		drawLine(lines, pose, box.maxX, box.maxY, box.maxZ, box.minX, box.maxY, box.maxZ, visibleColor, width);
+		drawLine(lines, pose, box.minX, box.maxY, box.maxZ, box.minX, box.maxY, box.minZ, visibleColor, width);
+		drawLine(lines, pose, box.minX, box.minY, box.minZ, box.minX, box.maxY, box.minZ, visibleColor, width);
+		drawLine(lines, pose, box.maxX, box.minY, box.minZ, box.maxX, box.maxY, box.minZ, visibleColor, width);
+		drawLine(lines, pose, box.maxX, box.minY, box.maxZ, box.maxX, box.maxY, box.maxZ, visibleColor, width);
+		drawLine(lines, pose, box.minX, box.minY, box.maxZ, box.minX, box.maxY, box.maxZ, visibleColor, width);
 	}
 
 	public static void drawFilled(WorldRenderContext context, AABB worldBox, int color) {
+		if (context.consumers() == null || context.matrices() == null || !isInFrustum(context, worldBox)) return;
 		Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
 		AABB box = worldBox.move(-camera.x, -camera.y, -camera.z);
 		VertexConsumer vertices = context.consumers().getBuffer(BOX_FILL);
@@ -70,6 +74,11 @@ public final class EspBoxRenderer {
 		else drawQuad(vertices, pose, color, x0,y1,z0, x1,y1,z0, x1,y1,z1, x0,y1,z1);
 		if ((z0 + z1) * 0.5 > 0) drawQuad(vertices, pose, color, x0,y0,z0, x1,y0,z0, x1,y1,z0, x0,y1,z0);
 		else drawQuad(vertices, pose, color, x1,y0,z1, x0,y0,z1, x0,y1,z1, x1,y1,z1);
+	}
+
+	private static boolean isInFrustum(WorldRenderContext context, AABB box) {
+		var frustum = context.worldRenderer().getCapturedFrustum();
+		return frustum == null || frustum.isVisible(box);
 	}
 
 	private static void drawQuad(VertexConsumer vertices, com.mojang.blaze3d.vertex.PoseStack.Pose pose, int color,
@@ -101,6 +110,11 @@ public final class EspBoxRenderer {
 		float dx = (float) (x2 - x1);
 		float dy = (float) (y2 - y1);
 		float dz = (float) (z2 - z1);
+		float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+		if (length < 1.0e-6F) return;
+		dx /= length;
+		dy /= length;
+		dz /= length;
 		consumer.addVertex(pose, (float) x1, (float) y1, (float) z1)
 			.setColor(color).setNormal(pose, dx, dy, dz).setLineWidth(width);
 		consumer.addVertex(pose, (float) x2, (float) y2, (float) z2)
