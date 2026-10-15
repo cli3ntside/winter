@@ -4,6 +4,7 @@ import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.AreaSelector;
 import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.assistance.Freecam;
+import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -43,6 +44,7 @@ public class WinterScreen extends Screen {
 	private int activeSlider = -1;
 	private int expandedModule;
 	private boolean waitingForFreecamBind;
+	private boolean waitingForSkillBind;
 	private Category selectedCategory;
 
 	private enum Category { ASSISTANCE, VISUALS, HUD, DEBUG }
@@ -264,17 +266,33 @@ public class WinterScreen extends Screen {
 		boolean freecamEnabled = Freecam.isEnabled();
 		drawModuleRow(graphics, contentX, contentRight, contentTop + 27,
 			"Freecam: " + (freecamEnabled ? "ON" : "OFF"), freecamEnabled);
+		boolean skillBindEnabled = SkillBind.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 54,
+			"Skill Bind: " + (skillBindEnabled ? "ON" : "OFF"), skillBindEnabled);
 		if (expandedModule == 20) {
 			String bind = waitingForFreecamBind ? "Press a key..." : Freecam.getBindKey() == GLFW.GLFW_KEY_UNKNOWN
 				? "None" : InputConstants.Type.KEYSYM.getOrCreate(Freecam.getBindKey()).getDisplayName().getString();
-			int bindY = contentTop + 54;
+			int bindY = contentTop + 81;
 			graphics.fill(contentX, bindY, contentRight, bindY + 22, waitingForFreecamBind ? 0xAA245A50 : 0xAA303640);
 			graphics.drawString(font, "Bind (key)", contentX + 8, bindY + 7, 0xFFEAF7FC, false);
 			graphics.drawString(font, bind, contentRight - font.width(bind) - 8, bindY + 7, 0xFF9AA3AF, false);
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 84, "Speed",
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 111, "Speed",
 				String.format(Locale.ROOT, "%.2f blocks/tick", Freecam.getSpeed()));
 			drawSlider(graphics, contentX, contentRight, freecamSliderY(), (Freecam.getSpeed() - 0.1) / 1.9);
+		} else if (expandedModule == 21) {
+			String bind = waitingForSkillBind ? "Press a key or mouse button..." : skillBindName(SkillBind.getBindCode());
+			int bindY = contentTop + 81;
+			graphics.fill(contentX, bindY, contentRight, bindY + 22, waitingForSkillBind ? 0xAA245A50 : 0xAA303640);
+			graphics.drawString(font, "Bind (key)", contentX + 8, bindY + 7, 0xFFEAF7FC, false);
+			graphics.drawString(font, trimToWidth(bind, contentRight - contentX - 16),
+				contentRight - font.width(trimToWidth(bind, contentRight - contentX - 16)) - 8, bindY + 7, 0xFF9AA3AF, false);
 		}
+	}
+
+	private String skillBindName(int code) {
+		if (code == GLFW.GLFW_KEY_UNKNOWN) return "None";
+		if (SkillBind.isMouseBind(code)) return "Mouse " + (SkillBind.getMouseButton(code) + 1);
+		return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
 	}
 
 	private void drawSettingLabel(GuiGraphics graphics, int left, int right, int y, String name, String value) {
@@ -303,7 +321,7 @@ public class WinterScreen extends Screen {
 	private int lifetimeSliderY() { return contentTop() + 178; }
 	private int thicknessSliderY() { return contentTop() + 213; }
 	private int rangeSliderY() { return contentTop() + 181; }
-	private int freecamSliderY() { return contentTop() + 101; }
+	private int freecamSliderY() { return contentTop() + 128; }
 
 	private void updateSlider(double mouseX) {
 		double progress = Math.max(0.0, Math.min(1.0, (mouseX - contentLeft()) / (contentRight() - contentLeft())));
@@ -360,6 +378,13 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (waitingForSkillBind) {
+			if (event.button() >= GLFW.GLFW_MOUSE_BUTTON_4 && event.button() <= GLFW.GLFW_MOUSE_BUTTON_8) {
+				SkillBind.setBindCode(1000 + event.button());
+				waitingForSkillBind = false;
+			}
+			return true;
+		}
 		int sidebarX = panelX + 10;
 		int sidebarY = panelY + HEADER_HEIGHT + 12;
 		if (event.button() == 0 && event.x() >= sidebarX && event.x() < panelX + SIDEBAR_WIDTH) {
@@ -424,8 +449,17 @@ public class WinterScreen extends Screen {
 					else if (event.button() == 1) setExpandedModule(expandedModule == 20 ? -1 : 20);
 					return true;
 				}
-				if (expandedModule == 20 && event.button() == 0 && event.y() >= top + 54 && event.y() <= top + 76) {
+				if (event.y() >= top + 54 && event.y() <= top + 75) {
+					if (event.button() == 0) SkillBind.toggle();
+					else if (event.button() == 1) setExpandedModule(expandedModule == 21 ? -1 : 21);
+					return true;
+				}
+				if (expandedModule == 20 && event.button() == 0 && event.y() >= top + 81 && event.y() <= top + 103) {
 					waitingForFreecamBind = true;
+					return true;
+				}
+				if (expandedModule == 21 && event.button() == 0 && event.y() >= top + 81 && event.y() <= top + 103) {
+					waitingForSkillBind = true;
 					return true;
 				}
 				if (expandedModule == 20 && event.button() == 0 && Math.abs(event.y() - freecamSliderY()) <= 6) {
@@ -493,6 +527,18 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
+		if (waitingForSkillBind) {
+			int key = event.key();
+			if (key == GLFW.GLFW_KEY_ESCAPE) waitingForSkillBind = false;
+			else if (key == GLFW.GLFW_KEY_BACKSPACE || key == GLFW.GLFW_KEY_DELETE) {
+				SkillBind.setBindCode(GLFW.GLFW_KEY_UNKNOWN);
+				waitingForSkillBind = false;
+			} else if (key != GLFW.GLFW_KEY_UNKNOWN) {
+				SkillBind.setBindCode(key);
+				waitingForSkillBind = false;
+			}
+			return true;
+		}
 		if (waitingForFreecamBind) {
 			int key = event.key();
 			if (key == GLFW.GLFW_KEY_ESCAPE) {

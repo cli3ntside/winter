@@ -5,6 +5,7 @@ import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.AreaSelector;
 import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.assistance.Freecam;
+import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
 import dev.luxnet.winter.client.visuals.MobEsp;
@@ -50,6 +51,7 @@ public class WinterClient implements ClientModInitializer {
 			BrokenWindowEsp.tick(client);
 			AutoRevive.tick(client);
 			Freecam.tick(client);
+			SkillBind.tick(client);
 			if (client.player != null) {
 				ShotDebugModule.recordSneakState(client.player.isShiftKeyDown());
 			}

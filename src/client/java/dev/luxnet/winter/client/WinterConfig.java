@@ -4,6 +4,7 @@ import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.assistance.Freecam;
+import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -60,6 +61,8 @@ public final class WinterConfig {
 			if (Math.abs(freecamSpeed - 0.45) < 0.000001) freecamSpeed = 0.80;
 			Freecam.setSpeed(freecamSpeed);
 			Freecam.setEnabled(false);
+			SkillBind.setBindCode(intValue("assistance.skillBind.bind", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN));
+			SkillBind.setEnabled(booleanValue("assistance.skillBind.enabled", false));
 			WinterScreen.loadMenuState(VALUES.getProperty("menu.category", "ASSISTANCE"),
 				intValue("menu.expandedModule", -1));
 		} catch (IOException exception) {
@@ -93,6 +96,8 @@ public final class WinterConfig {
 		VALUES.setProperty("assistance.autoRevive", Boolean.toString(AutoRevive.isEnabled()));
 		VALUES.setProperty("assistance.freecam.bind", Integer.toString(Freecam.getBindKey()));
 		VALUES.setProperty("assistance.freecam.speed", Double.toString(Freecam.getSpeed()));
+		VALUES.setProperty("assistance.skillBind.bind", Integer.toString(SkillBind.getBindCode()));
+		VALUES.setProperty("assistance.skillBind.enabled", Boolean.toString(SkillBind.isEnabled()));
 		VALUES.setProperty("menu.category", WinterScreen.getSelectedCategoryName());
 		VALUES.setProperty("menu.expandedModule", Integer.toString(WinterScreen.getExpandedModule()));
 		try {
