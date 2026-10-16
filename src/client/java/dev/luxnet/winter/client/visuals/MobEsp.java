@@ -89,7 +89,9 @@ public final class MobEsp {
 	}
 
 	private static boolean isMobTarget(Entity entity) {
-		return !entity.isRemoved() && (entity instanceof Monster || entity instanceof Wolf || entity instanceof IronGolem);
+		if (entity.isRemoved() || !(entity instanceof LivingEntity living)
+			|| living.isDeadOrDying() || living.deathTime > 0) return false;
+		return entity instanceof Monster || entity instanceof Wolf || entity instanceof IronGolem;
 	}
 
 	private static void updateDamageStates() {
