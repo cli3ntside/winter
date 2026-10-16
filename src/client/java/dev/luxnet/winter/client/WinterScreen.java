@@ -1,8 +1,10 @@
 package dev.luxnet.winter.client;
 
 import dev.luxnet.winter.client.debug.MobDebugModule;
+import dev.luxnet.winter.client.debug.DrawPredict;
 import dev.luxnet.winter.client.debug.AreaSelector;
 import dev.luxnet.winter.client.assistance.AutoRevive;
+import dev.luxnet.winter.client.assistance.AimAssist;
 import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
@@ -46,6 +48,7 @@ public class WinterScreen extends Screen {
 	private int expandedModule;
 	private boolean waitingForFreecamBind;
 	private boolean waitingForSkillBind;
+	private boolean waitingForAimBind;
 	private Category selectedCategory;
 
 	private enum Category { ASSISTANCE, VISUALS, HUD, DEBUG }
@@ -59,7 +62,7 @@ public class WinterScreen extends Screen {
 	public static void loadMenuState(String categoryName, int module) {
 		try { savedCategory = Category.valueOf(categoryName); }
 		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
-		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 20 || module == 21 || module >= 0 && module <= 6
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 20 || module == 21 || module == 22 || module >= 0 && module <= 6
 			? module : -1;
 	}
 
@@ -148,6 +151,9 @@ public class WinterScreen extends Screen {
 		boolean areaEnabled = AreaSelector.isEnabled();
 		drawModuleRow(graphics, contentX, contentRight, areaY,
 			"Area Selector: " + (areaEnabled ? "ON" : "OFF"), areaEnabled);
+		boolean drawPredictEnabled = DrawPredict.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 78,
+			"Draw Predict: " + (drawPredictEnabled ? "ON" : "OFF"), drawPredictEnabled);
 
 		int eventsTop = debugEventsTop();
 		if (expandedModule == DEBUG_AREA_EXPANSION) {
@@ -157,10 +163,10 @@ public class WinterScreen extends Screen {
 			String secondText = second == null ? (first == null ? "Point 2: —" : "Point 2: right click a block")
 				: "Point 2: " + coordinates(second);
 			graphics.drawString(font, trimToWidth(firstText, contentRight - contentX), contentX + 2,
-				contentTop + 80, 0xFFD5DCE5, false);
+				contentTop + 106, 0xFFD5DCE5, false);
 			graphics.drawString(font, trimToWidth(secondText, contentRight - contentX), contentX + 2,
-				contentTop + 93, 0xFFD5DCE5, false);
-			int saveY = contentTop + 108;
+				contentTop + 119, 0xFFD5DCE5, false);
+			int saveY = contentTop + 134;
 			boolean canSave = AreaSelector.canSave();
 			boolean hovered = mouseX >= contentX && mouseX <= contentRight && mouseY >= saveY && mouseY < saveY + 20;
 			graphics.fill(contentX, saveY, contentRight, saveY + 20,
@@ -170,7 +176,7 @@ public class WinterScreen extends Screen {
 				canSave ? 0xFFEAF7FC : 0xFF9AA3AF, false);
 			if (!AreaSelector.getSaveStatus().isEmpty()) {
 				graphics.drawString(font, trimToWidth(AreaSelector.getSaveStatus(), contentRight - contentX),
-					contentX + 2, contentTop + 132, 0xFF9AA3AF, false);
+					contentX + 2, contentTop + 158, 0xFF9AA3AF, false);
 			}
 		}
 
@@ -193,7 +199,7 @@ public class WinterScreen extends Screen {
 	}
 
 	private int debugEventsTop() {
-		return contentTop() + (expandedModule == DEBUG_AREA_EXPANSION ? 152 : 80);
+		return contentTop() + (expandedModule == DEBUG_AREA_EXPANSION ? 180 : 106);
 	}
 
 	private static String coordinates(BlockPos pos) {
@@ -278,6 +284,9 @@ public class WinterScreen extends Screen {
 		boolean skillBindEnabled = SkillBind.isEnabled();
 		drawModuleRow(graphics, contentX, contentRight, contentTop + 54,
 			"Skill Bind: " + (skillBindEnabled ? "ON" : "OFF"), skillBindEnabled);
+		boolean aimAssistEnabled = AimAssist.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 81,
+			"Aim Assist: " + (aimAssistEnabled ? "ON" : "OFF"), aimAssistEnabled);
 		if (expandedModule == 20) {
 			String bind = waitingForFreecamBind ? "Press a key..." : Freecam.getBindKey() == GLFW.GLFW_KEY_UNKNOWN
 				? "None" : InputConstants.Type.KEYSYM.getOrCreate(Freecam.getBindKey()).getDisplayName().getString();
@@ -295,7 +304,26 @@ public class WinterScreen extends Screen {
 			graphics.drawString(font, "Bind (key)", contentX + 8, bindY + 7, 0xFFEAF7FC, false);
 			graphics.drawString(font, trimToWidth(bind, contentRight - contentX - 16),
 				contentRight - font.width(trimToWidth(bind, contentRight - contentX - 16)) - 8, bindY + 7, 0xFF9AA3AF, false);
+		} else if (expandedModule == 22) {
+			String bind = waitingForAimBind ? "Press a key or mouse button..." : aimBindName(AimAssist.getBindCode());
+			int bindY = contentTop + 108;
+			graphics.fill(contentX, bindY, contentRight, bindY + 22, waitingForAimBind ? 0xAA245A50 : 0xAA303640);
+			graphics.drawString(font, "Aim key", contentX + 8, bindY + 7, 0xFFEAF7FC, false);
+			String shownBind = trimToWidth(bind, contentRight - contentX - 16);
+			graphics.drawString(font, shownBind, contentRight - font.width(shownBind) - 8,
+				bindY + 7, 0xFF9AA3AF, false);
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 138, "FOV",
+				AimAssist.getFov() + "°");
+			drawSlider(graphics, contentX, contentRight, aimFovSliderY(), AimAssist.getFovProgress());
+			drawModuleRow(graphics, contentX, contentRight, contentTop + 174,
+				"FOV Circle: " + (AimAssist.isFovCircleEnabled() ? "ON" : "OFF"), AimAssist.isFovCircleEnabled());
 		}
+	}
+
+	private String aimBindName(int code) {
+		if (AimAssist.isMouseBind(code)) return "Mouse " + (AimAssist.getMouseButton(code) + 1);
+		if (code == GLFW.GLFW_KEY_UNKNOWN) return "None";
+		return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
 	}
 
 	private String skillBindName(int code) {
@@ -332,6 +360,7 @@ public class WinterScreen extends Screen {
 	private int rangeSliderY() { return contentTop() + 181; }
 	private int playerVisibilitySliderY() { return contentTop() + 207; }
 	private int freecamSliderY() { return contentTop() + 128; }
+	private int aimFovSliderY() { return contentTop() + 154; }
 
 	private void updateSlider(double mouseX) {
 		double progress = Math.max(0.0, Math.min(1.0, (mouseX - contentLeft()) / (contentRight() - contentLeft())));
@@ -352,6 +381,8 @@ public class WinterScreen extends Screen {
 			Freecam.setSpeed(0.1 + progress * 1.9);
 		} else if (activeSlider == 7) {
 			PlayerVisibility.setRenderDistance(4 + (int) Math.round(progress * 60.0));
+		} else if (activeSlider == 8) {
+			AimAssist.setFov(5 + (int) Math.round(progress * 55.0));
 		}
 	}
 
@@ -390,6 +421,13 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (waitingForAimBind) {
+			if (event.button() >= GLFW.GLFW_MOUSE_BUTTON_1 && event.button() <= GLFW.GLFW_MOUSE_BUTTON_8) {
+				AimAssist.setBindCode(1000 + event.button());
+				waitingForAimBind = false;
+			}
+			return true;
+		}
 		if (waitingForSkillBind) {
 			if (event.button() >= GLFW.GLFW_MOUSE_BUTTON_4 && event.button() <= GLFW.GLFW_MOUSE_BUTTON_8) {
 				SkillBind.setBindCode(1000 + event.button());
@@ -441,8 +479,12 @@ public class WinterScreen extends Screen {
 						setExpandedModule(expandedModule == DEBUG_AREA_EXPANSION ? -1 : DEBUG_AREA_EXPANSION);
 					return true;
 				}
+				if (event.button() == 0 && event.y() >= top + 78 && event.y() <= top + 99) {
+					DrawPredict.toggle();
+					return true;
+				}
 				if (expandedModule == DEBUG_AREA_EXPANSION && event.button() == 0
-					&& event.y() >= top + 108 && event.y() < top + 128) {
+					&& event.y() >= top + 134 && event.y() < top + 154) {
 					AreaSelector.saveCurrentArea();
 					return true;
 				}
@@ -466,12 +508,30 @@ public class WinterScreen extends Screen {
 					else if (event.button() == 1) setExpandedModule(expandedModule == 21 ? -1 : 21);
 					return true;
 				}
+				if (event.y() >= top + 81 && event.y() <= top + 102) {
+					if (event.button() == 0) AimAssist.toggle();
+					else if (event.button() == 1) setExpandedModule(expandedModule == 22 ? -1 : 22);
+					return true;
+				}
 				if (expandedModule == 20 && event.button() == 0 && event.y() >= top + 81 && event.y() <= top + 103) {
 					waitingForFreecamBind = true;
 					return true;
 				}
 				if (expandedModule == 21 && event.button() == 0 && event.y() >= top + 81 && event.y() <= top + 103) {
 					waitingForSkillBind = true;
+					return true;
+				}
+				if (expandedModule == 22 && event.button() == 0 && event.y() >= top + 108 && event.y() <= top + 130) {
+					waitingForAimBind = true;
+					return true;
+				}
+				if (expandedModule == 22 && event.button() == 0 && event.y() >= top + 174 && event.y() <= top + 195) {
+					AimAssist.setFovCircleEnabled(!AimAssist.isFovCircleEnabled());
+					return true;
+				}
+				if (expandedModule == 22 && event.button() == 0 && Math.abs(event.y() - aimFovSliderY()) <= 6) {
+					activeSlider = 8;
+					updateSlider(event.x());
 					return true;
 				}
 				if (expandedModule == 20 && event.button() == 0 && Math.abs(event.y() - freecamSliderY()) <= 6) {
@@ -545,6 +605,18 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
+		if (waitingForAimBind) {
+			int key = event.key();
+			if (key == GLFW.GLFW_KEY_ESCAPE) waitingForAimBind = false;
+			else if (key == GLFW.GLFW_KEY_BACKSPACE || key == GLFW.GLFW_KEY_DELETE) {
+				AimAssist.setBindCode(GLFW.GLFW_KEY_UNKNOWN);
+				waitingForAimBind = false;
+			} else if (key != GLFW.GLFW_KEY_UNKNOWN) {
+				AimAssist.setBindCode(key);
+				waitingForAimBind = false;
+			}
+			return true;
+		}
 		if (waitingForSkillBind) {
 			int key = event.key();
 			if (key == GLFW.GLFW_KEY_ESCAPE) waitingForSkillBind = false;

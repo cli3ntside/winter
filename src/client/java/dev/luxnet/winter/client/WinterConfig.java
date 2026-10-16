@@ -2,9 +2,11 @@ package dev.luxnet.winter.client;
 
 import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
+import dev.luxnet.winter.client.debug.DrawPredict;
 import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.assistance.SkillBind;
+import dev.luxnet.winter.client.assistance.AimAssist;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -41,6 +43,7 @@ public final class WinterConfig {
 			}
 			ShotDebugModule.setEnabled(booleanValue("debug.capture", false));
 			MobDebugModule.setEnabled(booleanValue("debug.detectMobs", false));
+			DrawPredict.setEnabled(booleanValue("debug.drawPredict", false));
 			BulletTracers.setEnabled(booleanValue("visuals.bulletTracers", false));
 			BulletTracers.setLifetimeMs(intValue("visuals.bulletTracers.lifetimeMs", 1_000));
 			BulletTracers.setThickness(floatValue("visuals.bulletTracers.thickness", 0.08F));
@@ -59,6 +62,10 @@ public final class WinterConfig {
 			PlayerVisibility.setRenderDistance(intValue("visuals.playerVisibility.range", 16));
 			WinterHud.setWatermarkEnabled(booleanValue("hud.watermark", true));
 			AutoRevive.setEnabled(booleanValue("assistance.autoRevive", false));
+			AimAssist.setBindCode(intValue("assistance.aimAssist.bind", 1001));
+			AimAssist.setFov(intValue("assistance.aimAssist.fov", 30));
+			AimAssist.setFovCircleEnabled(booleanValue("assistance.aimAssist.fovCircle", false));
+			AimAssist.setEnabled(booleanValue("assistance.aimAssist", false));
 			Freecam.setBindKey(intValue("assistance.freecam.bind", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN));
 			double freecamSpeed = doubleValue("assistance.freecam.speed", 0.80);
 			if (Math.abs(freecamSpeed - 0.45) < 0.000001) freecamSpeed = 0.80;
@@ -81,6 +88,7 @@ public final class WinterConfig {
 		if (!loaded || applying || configFile == null) return;
 		VALUES.setProperty("debug.capture", Boolean.toString(ShotDebugModule.isEnabled()));
 		VALUES.setProperty("debug.detectMobs", Boolean.toString(MobDebugModule.isEnabled()));
+		VALUES.setProperty("debug.drawPredict", Boolean.toString(DrawPredict.isEnabled()));
 		VALUES.setProperty("visuals.bulletTracers", Boolean.toString(BulletTracers.isEnabled()));
 		VALUES.setProperty("visuals.bulletTracers.lifetimeMs", Integer.toString(BulletTracers.getLifetimeMs()));
 		VALUES.setProperty("visuals.bulletTracers.thickness", Float.toString(BulletTracers.getThickness()));
@@ -99,6 +107,10 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.playerVisibility.range", Integer.toString(PlayerVisibility.getRenderDistance()));
 		VALUES.setProperty("hud.watermark", Boolean.toString(WinterHud.isWatermarkEnabled()));
 		VALUES.setProperty("assistance.autoRevive", Boolean.toString(AutoRevive.isEnabled()));
+		VALUES.setProperty("assistance.aimAssist", Boolean.toString(AimAssist.isEnabled()));
+		VALUES.setProperty("assistance.aimAssist.bind", Integer.toString(AimAssist.getBindCode()));
+		VALUES.setProperty("assistance.aimAssist.fov", Integer.toString(AimAssist.getFov()));
+		VALUES.setProperty("assistance.aimAssist.fovCircle", Boolean.toString(AimAssist.isFovCircleEnabled()));
 		VALUES.setProperty("assistance.freecam.bind", Integer.toString(Freecam.getBindKey()));
 		VALUES.setProperty("assistance.freecam.speed", Double.toString(Freecam.getSpeed()));
 		VALUES.setProperty("assistance.skillBind.bind", Integer.toString(SkillBind.getBindCode()));

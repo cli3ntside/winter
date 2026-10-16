@@ -3,9 +3,13 @@ package dev.luxnet.winter.client;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.debug.MobDebugModule;
 import dev.luxnet.winter.client.debug.AreaSelector;
+import dev.luxnet.winter.client.debug.DrawPredict;
 import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.assistance.SkillBind;
+import dev.luxnet.winter.client.assistance.AimAssist;
+import dev.luxnet.winter.client.assistance.AimAssistHud;
+import dev.luxnet.winter.client.assistance.AimAssist;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
 import dev.luxnet.winter.client.visuals.MobEsp;
@@ -26,8 +30,11 @@ public class WinterClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		WinterHud.register();
+		AimAssistHud.register();
 		WinterConfig.load(Minecraft.getInstance());
 		AreaSelector.register();
+		AimAssist.registerWorldRender();
+		DrawPredict.registerWorldRender();
 		BulletTracers.registerWorldRender();
 		LuckyChestEsp.registerWorldRender();
 		MobEsp.registerWorldRender();
