@@ -12,6 +12,7 @@ import dev.luxnet.winter.client.visuals.MobEsp;
 import dev.luxnet.winter.client.visuals.TeamEsp;
 import dev.luxnet.winter.client.visuals.PowerupEsp;
 import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
+import dev.luxnet.winter.client.visuals.PlayerVisibility;
 import dev.luxnet.winter.client.WinterHud;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -58,7 +59,7 @@ public class WinterScreen extends Screen {
 	public static void loadMenuState(String categoryName, int module) {
 		try { savedCategory = Category.valueOf(categoryName); }
 		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
-		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 20 || module >= 0 && module <= 5
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 20 || module == 21 || module >= 0 && module <= 6
 			? module : -1;
 	}
 
@@ -218,6 +219,9 @@ public class WinterScreen extends Screen {
 		boolean brokenWindowEspEnabled = BrokenWindowEsp.isEnabled();
 		drawModuleRow(graphics, contentX, contentRight, contentTop + 135,
 			"Broken Window ESP: " + (brokenWindowEspEnabled ? "ON" : "OFF"), brokenWindowEspEnabled);
+		boolean playerVisibilityEnabled = PlayerVisibility.isEnabled();
+		drawModuleRow(graphics, contentX, contentRight, contentTop + 162,
+			"Player Visibility: " + (playerVisibilityEnabled ? "ON" : "OFF"), playerVisibilityEnabled);
 		if (expandedModule == 0) {
 			drawSettingLabel(graphics, contentX, contentRight, contentTop + 163, "Lifetime",
 				String.format(Locale.ROOT, "%.2fs", BulletTracers.getLifetimeMs() / 1000.0));
@@ -250,6 +254,11 @@ public class WinterScreen extends Screen {
 			String mapName = BrokenWindowEsp.getSelectedMapName();
 			graphics.drawString(font, mapName + "  ‹ ›", contentRight - font.width(mapName + "  ‹ ›") - 8,
 				mapY + 7, 0xFF9FFFD7, false);
+		} else if (expandedModule == 6) {
+			drawSettingLabel(graphics, contentX, contentRight, contentTop + 190, "Distance",
+				PlayerVisibility.getRenderDistance() + " blocks");
+			drawSlider(graphics, contentX, contentRight, contentTop + 207,
+				(PlayerVisibility.getRenderDistance() - 4) / 60.0);
 		}
 	}
 
@@ -321,6 +330,7 @@ public class WinterScreen extends Screen {
 	private int lifetimeSliderY() { return contentTop() + 178; }
 	private int thicknessSliderY() { return contentTop() + 213; }
 	private int rangeSliderY() { return contentTop() + 181; }
+	private int playerVisibilitySliderY() { return contentTop() + 207; }
 	private int freecamSliderY() { return contentTop() + 128; }
 
 	private void updateSlider(double mouseX) {
@@ -340,6 +350,8 @@ public class WinterScreen extends Screen {
 			PowerupEsp.setRenderDistance(16 + (int) Math.round(progress * 112.0));
 		} else if (activeSlider == 6) {
 			Freecam.setSpeed(0.1 + progress * 1.9);
+		} else if (activeSlider == 7) {
+			PlayerVisibility.setRenderDistance(4 + (int) Math.round(progress * 60.0));
 		}
 	}
 
@@ -498,6 +510,11 @@ public class WinterScreen extends Screen {
 					else if (event.button() == 1) setExpandedModule(expandedModule == 5 ? -1 : 5);
 					return true;
 				}
+				if (event.y() >= top + 162 && event.y() <= top + 183) {
+					if (event.button() == 0) PlayerVisibility.toggle();
+					else if (event.button() == 1) setExpandedModule(expandedModule == 6 ? -1 : 6);
+					return true;
+				}
 				if (expandedModule == 5 && event.button() == 0
 					&& event.y() >= top + 163 && event.y() <= top + 185) {
 					BrokenWindowEsp.cycleMap();
@@ -515,6 +532,7 @@ public class WinterScreen extends Screen {
 					else if (expandedModule == 2 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 3;
 					else if (expandedModule == 3 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 4;
 					else if (expandedModule == 4 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 5;
+					else if (expandedModule == 6 && Math.abs(event.y() - playerVisibilitySliderY()) <= 6) activeSlider = 7;
 					if (activeSlider != -1) {
 						updateSlider(event.x());
 						return true;

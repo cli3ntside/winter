@@ -9,7 +9,9 @@
 		"FreecamCameraMixin",
 		"FreecamMouseMixin",
 		"FreecamInputMixin",
-		"KeyMappingAccessor"
+		"KeyMappingAccessor",
+		"PlayerVisibilityRendererMixin",
+		"PlayerVisibilityNameTagMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

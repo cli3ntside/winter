@@ -11,6 +11,7 @@ import dev.luxnet.winter.client.visuals.LuckyChestEsp;
 import dev.luxnet.winter.client.visuals.MobEsp;
 import dev.luxnet.winter.client.visuals.PowerupEsp;
 import dev.luxnet.winter.client.visuals.TeamEsp;
+import dev.luxnet.winter.client.visuals.PlayerVisibility;
 import net.minecraft.client.Minecraft;
 
 import java.io.IOException;
@@ -54,6 +55,8 @@ public final class WinterConfig {
 			PowerupEsp.setRenderDistance(intValue("visuals.powerupEsp.range", 64));
 			BrokenWindowEsp.setEnabled(booleanValue("visuals.brokenWindowEsp", false));
 			BrokenWindowEsp.setSelectedMap(VALUES.getProperty("visuals.brokenWindowEsp.map", "deadend"));
+			PlayerVisibility.setEnabled(booleanValue("visuals.playerVisibility", false));
+			PlayerVisibility.setRenderDistance(intValue("visuals.playerVisibility.range", 16));
 			WinterHud.setWatermarkEnabled(booleanValue("hud.watermark", true));
 			AutoRevive.setEnabled(booleanValue("assistance.autoRevive", false));
 			Freecam.setBindKey(intValue("assistance.freecam.bind", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN));
@@ -92,6 +95,8 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.powerupEsp.range", Integer.toString(PowerupEsp.getRenderDistance()));
 		VALUES.setProperty("visuals.brokenWindowEsp", Boolean.toString(BrokenWindowEsp.isEnabled()));
 		VALUES.setProperty("visuals.brokenWindowEsp.map", BrokenWindowEsp.getSelectedMapId());
+		VALUES.setProperty("visuals.playerVisibility", Boolean.toString(PlayerVisibility.isEnabled()));
+		VALUES.setProperty("visuals.playerVisibility.range", Integer.toString(PlayerVisibility.getRenderDistance()));
 		VALUES.setProperty("hud.watermark", Boolean.toString(WinterHud.isWatermarkEnabled()));
 		VALUES.setProperty("assistance.autoRevive", Boolean.toString(AutoRevive.isEnabled()));
 		VALUES.setProperty("assistance.freecam.bind", Integer.toString(Freecam.getBindKey()));
