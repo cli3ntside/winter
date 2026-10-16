@@ -10,6 +10,8 @@ import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.HashMap;
+import java.util.Map;
 import org.lwjgl.glfw.GLFW;
 
 /** Smooth, frame-driven aim assistance for nearby mobs while the use button is held. */
@@ -23,6 +25,9 @@ public final class AimAssist {
 	private static int bindCode = 1000 + GLFW.GLFW_MOUSE_BUTTON_RIGHT;
 	private static long previousFrameNanos;
 	private static Prediction prediction;
+	private static Object motionLevel;
+	private static long nextMotionCleanup;
+	private static final Map<Integer, MotionSample> MOTION_SAMPLES = new HashMap<>();
 
 	private AimAssist() { }
 
@@ -61,8 +66,17 @@ public final class AimAssist {
 		}
 
 		var player = minecraft.player;
+		if (motionLevel != minecraft.level) {
+			motionLevel = minecraft.level;
+			MOTION_SAMPLES.clear();
+		}
+		if (now >= nextMotionCleanup) {
+			MOTION_SAMPLES.values().removeIf(sample -> now - sample.lastSeen > 5_000_000_000L);
+			nextMotionCleanup = now + 1_000_000_000L;
+		}
 		Vec3 eye = player.getEyePosition();
 		Mob bestTarget = null;
+		Vec3 bestPredictedPosition = null;
 		float bestYaw = 0.0F;
 		float bestPitch = 0.0F;
 		double bestAngle = fov;
@@ -74,20 +88,7 @@ public final class AimAssist {
 			if (distanceSquared > MAX_DISTANCE_SQUARED) continue;
 
 			double distance = Math.sqrt(distanceSquared);
-			Vec3 velocity = mob.getDeltaMovement();
-			double horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-			double halfMobWidth = Math.max(0.15, mob.getBbWidth() * 0.5);
-			Vec3 moveDirection = horizontalSpeed > 0.015
-				? new Vec3(velocity.x / horizontalSpeed, 0.0, velocity.z / horizontalSpeed) : Vec3.ZERO;
-			Path path = mob.getNavigation().getPath();
-			if (path != null && !path.isDone()) {
-				Vec3 nextPoint = path.getNextEntityPos(mob).subtract(mob.position());
-				Vec3 pathDirection = new Vec3(nextPoint.x, 0.0, nextPoint.z);
-				if (pathDirection.lengthSqr() > 0.0025) moveDirection = pathDirection.normalize();
-			}
-			double leadDistance = moveDirection.lengthSqr() > 0.0
-				? Math.min(1.25, Math.max(halfMobWidth, halfMobWidth + distance * 0.035)) : 0.0;
-			Vec3 predictedPosition = mob.position().add(moveDirection.scale(leadDistance));
+			Vec3 predictedPosition = predictPosition(mob, distance, now);
 			Vec3 aimPoint = predictedPosition.add(0.0, mob.getBbHeight() * 0.82, 0.0);
 			Vec3 direction = aimPoint.subtract(eye);
 			double horizontal = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
@@ -98,6 +99,7 @@ public final class AimAssist {
 			double angle = Math.sqrt(yawError * yawError + pitchError * pitchError);
 			if (angle < bestAngle || (Math.abs(angle - bestAngle) < 0.01 && distanceSquared < bestDistance)) {
 				bestTarget = mob;
+				bestPredictedPosition = predictedPosition;
 				bestYaw = targetYaw;
 				bestPitch = targetPitch;
 				bestAngle = angle;
@@ -109,19 +111,7 @@ public final class AimAssist {
 			prediction = null;
 			return;
 		}
-		Vec3 velocity = bestTarget.getDeltaMovement();
-		double speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-		Vec3 moveDirection = speed > 0.015 ? new Vec3(velocity.x / speed, 0.0, velocity.z / speed) : Vec3.ZERO;
-		Path path = bestTarget.getNavigation().getPath();
-		if (path != null && !path.isDone()) {
-			Vec3 nextPoint = path.getNextEntityPos(bestTarget).subtract(bestTarget.position());
-			Vec3 pathDirection = new Vec3(nextPoint.x, 0.0, nextPoint.z);
-			if (pathDirection.lengthSqr() > 0.0025) moveDirection = pathDirection.normalize();
-		}
-		double predictedLead = moveDirection.lengthSqr() > 0.0
-			? Math.min(1.25, Math.max(bestTarget.getBbWidth() * 0.5,
-				bestTarget.getBbWidth() * 0.5 + bestTarget.distanceTo(player) * 0.035)) : 0.0;
-		prediction = new Prediction(bestTarget, bestTarget.position().add(moveDirection.scale(predictedLead)));
+		prediction = new Prediction(bestTarget, bestPredictedPosition);
 		if (deltaSeconds <= 0.0) return;
 		double response = 7.0 + ThreadLocalRandom.current().nextDouble(-0.18, 0.18);
 		float factor = (float) (1.0 - Math.exp(-response * deltaSeconds));
@@ -131,7 +121,82 @@ public final class AimAssist {
 		player.setXRot(Math.max(-90.0F, Math.min(90.0F, player.getXRot() + pitchDelta * factor)));
 	}
 
+	private static Vec3 predictPosition(Mob mob, double distance, long now) {
+		Vec3 observedVelocity = getObservedVelocity(mob, now);
+		Vec3 packetVelocity = mob.getDeltaMovement();
+		Vec3 tickVelocity = new Vec3(mob.getX() - mob.xo, 0.0, mob.getZ() - mob.zo);
+		Vec3 velocity;
+		if (tickVelocity.lengthSqr() > 0.0004) {
+			// Position deltas are available even when the server does not send a useful motion vector.
+			velocity = tickVelocity;
+			if (observedVelocity.lengthSqr() > 0.0004)
+				velocity = velocity.scale(0.7).add(observedVelocity.scale(0.3));
+		} else if (observedVelocity.lengthSqr() > 0.0004) {
+			velocity = observedVelocity;
+		} else {
+			velocity = new Vec3(packetVelocity.x, 0.0, packetVelocity.z);
+		}
+
+		Path path = mob.getNavigation().getPath();
+		if (path != null && !path.isDone()) {
+			Vec3 nextPoint = path.getNextEntityPos(mob).subtract(mob.position());
+			Vec3 pathDirection = new Vec3(nextPoint.x, 0.0, nextPoint.z);
+			if (pathDirection.lengthSqr() > 0.0025) {
+				pathDirection = pathDirection.normalize();
+				double speed = velocity.length();
+				if (speed < 0.02) {
+					speed = Math.max(0.04, Math.min(0.32, mob.getSpeed()));
+					velocity = pathDirection.scale(speed);
+				}
+			}
+		}
+
+		// Include the smooth-turn response delay plus a small distance-based hit-registration delay.
+		double leadTicks = Math.min(10.0, 3.5 + distance * 0.09);
+		Vec3 displacement = velocity.scale(leadTicks);
+		// Clamp only extreme network spikes; ordinary fast movement keeps its full lead.
+		double maxLead = Math.min(5.0, 0.75 + distance * 0.11);
+		if (displacement.length() > maxLead) displacement = displacement.normalize().scale(maxLead);
+		return mob.position().add(displacement);
+	}
+
+	private static Vec3 getObservedVelocity(Mob mob, long now) {
+		int id = mob.getId();
+		Vec3 position = mob.position();
+		MotionSample sample = MOTION_SAMPLES.get(id);
+		if (sample == null) {
+			MOTION_SAMPLES.put(id, new MotionSample(position, now));
+			return Vec3.ZERO;
+		}
+		sample.lastSeen = now;
+		long elapsed = now - sample.sampledAt;
+		if (elapsed < 60_000_000L) return sample.velocity;
+
+		double seconds = elapsed / 1_000_000_000.0;
+		Vec3 delta = position.subtract(sample.position);
+		Vec3 measured = new Vec3(delta.x / seconds * 0.05, 0.0, delta.z / seconds * 0.05);
+		double speed = measured.length();
+		if (speed > 0.75) measured = measured.scale(0.75 / speed);
+		sample.position = position;
+		sample.sampledAt = now;
+		sample.velocity = sample.velocity.scale(0.35).add(measured.scale(0.65));
+		return sample.velocity;
+	}
+
 	public record Prediction(Mob target, Vec3 position) { }
+
+	private static final class MotionSample {
+		private Vec3 position;
+		private long sampledAt;
+		private long lastSeen;
+		private Vec3 velocity = Vec3.ZERO;
+
+		private MotionSample(Vec3 position, long now) {
+			this.position = position;
+			this.sampledAt = now;
+			this.lastSeen = now;
+		}
+	}
 
 	private static double wrapDegrees(double angle) {
 		angle %= 360.0;
