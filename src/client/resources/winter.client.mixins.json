@@ -12,7 +12,9 @@
 		"FreecamInputMixin",
 		"KeyMappingAccessor",
 		"PlayerVisibilityRendererMixin",
-		"PlayerVisibilityNameTagMixin"
+		"PlayerVisibilityNameTagMixin",
+		"HudOverlayMixin",
+		"BossHealthOverlayAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

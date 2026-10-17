@@ -316,8 +316,13 @@ public class WinterScreen extends Screen {
 			drawModuleRow(graphics, contentX, contentRight, trackerY + 53,
 				"Powerup Predictor: " + (PowerupTracker.isPredictorEnabled() ? "ON" : "OFF"), PowerupTracker.isPredictorEnabled());
 		}
-		int editorY = trackerY + 27 + (expandedModule == 30 ? 55 : 0);
-		drawModuleRow(graphics, contentX, contentRight, editorY, "HUD Editor", false);
+		int scoreboardY = trackerY + 27 + (expandedModule == 30 ? 55 : 0);
+		drawModuleRow(graphics, contentX, contentRight, scoreboardY,
+			"Scoreboard: " + (WinterHud.isScoreboardEnabled() ? "ON" : "OFF"), WinterHud.isScoreboardEnabled());
+		int bossbarY = scoreboardY + 26;
+		drawModuleRow(graphics, contentX, contentRight, bossbarY,
+			"Bossbar: " + (WinterHud.isBossbarEnabled() ? "ON" : "OFF"), WinterHud.isBossbarEnabled());
+		drawModuleRow(graphics, contentX, contentRight, bossbarY + 26, "HUD Editor", false);
 	}
 
 	private void renderAssistance(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
@@ -621,8 +626,17 @@ public class WinterScreen extends Screen {
 					PowerupTracker.setPredictorEnabled(!PowerupTracker.isPredictorEnabled());
 					return true;
 				}
-				int editorY = trackerY + 27 + (expandedModule == 30 ? 55 : 0);
-				if (inside((int) event.y(), editorY, editorY + 21)) {
+				int scoreboardY = trackerY + 27 + (expandedModule == 30 ? 55 : 0);
+				if (inside((int) event.y(), scoreboardY, scoreboardY + 21)) {
+					WinterHud.toggleScoreboard();
+					return true;
+				}
+				int bossbarY = scoreboardY + 26;
+				if (inside((int) event.y(), bossbarY, bossbarY + 21)) {
+					WinterHud.toggleBossbar();
+					return true;
+				}
+				if (inside((int) event.y(), bossbarY + 26, bossbarY + 47)) {
 					this.minecraft.setScreen(new HudEditorScreen(this));
 					return true;
 				}

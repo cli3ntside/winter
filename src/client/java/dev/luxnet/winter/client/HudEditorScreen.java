@@ -31,10 +31,9 @@ public final class HudEditorScreen extends Screen {
 		graphics.drawString(font, "HUD Editor", 22, 20, 0xFFEAF7FC, false);
 		String help = "Drag to move  ·  drag corner to resize  ·  Esc to close";
 		graphics.drawString(font, help, width - font.width(help) - 22, 20, 0xFF9AA3AF, false);
-		int[] elements = { WinterHud.WATERMARK, WinterHud.POWERUP_TIMER, WinterHud.POWERUP_PREDICTOR };
-		for (int element : elements) {
+		for (int element = WinterHud.WATERMARK; element <= WinterHud.BOSSBAR; element++) {
 			int x = WinterHud.getScreenX(element, width, font);
-			int y = WinterHud.getScreenY(element, height, font);
+			int y = WinterHud.getEditorScreenY(element, height, font);
 			int boxWidth = WinterHud.getWidth(element, font);
 			int boxHeight = WinterHud.getHeight(element, font);
 			graphics.fill(x - 3, y - 3, x + boxWidth + 3, y + boxHeight + 3,
@@ -53,9 +52,9 @@ public final class HudEditorScreen extends Screen {
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		if (event.button() != 0) return super.mouseClicked(event, doubleClick);
-		for (int element = WinterHud.POWERUP_PREDICTOR; element >= WinterHud.WATERMARK; element--) {
+		for (int element = WinterHud.BOSSBAR; element >= WinterHud.WATERMARK; element--) {
 			int x = WinterHud.getScreenX(element, width, font);
-			int y = WinterHud.getScreenY(element, height, font);
+			int y = WinterHud.getEditorScreenY(element, height, font);
 			int boxWidth = WinterHud.getWidth(element, font);
 			int boxHeight = WinterHud.getHeight(element, font);
 			if (event.x() >= x + boxWidth - 8 && event.x() <= x + boxWidth + 5

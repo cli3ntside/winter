@@ -62,15 +62,23 @@ public final class WinterConfig {
 			PlayerVisibility.setEnabled(booleanValue("visuals.playerVisibility", false));
 			PlayerVisibility.setRenderDistance(intValue("visuals.playerVisibility.range", 16));
 			WinterHud.setWatermarkEnabled(booleanValue("hud.watermark", true));
+			WinterHud.setScoreboardEnabled(booleanValue("hud.scoreboard.enabled", true));
+			WinterHud.setBossbarEnabled(booleanValue("hud.bossbar.enabled", true));
 			PowerupTracker.setEnabled(booleanValue("hud.powerupTracker.enabled", false));
 			PowerupTracker.setTimerEnabled(booleanValue("hud.powerupTracker.timer", false));
 			PowerupTracker.setPredictorEnabled(booleanValue("hud.powerupTracker.predictor", false));
 			WinterHud.loadPosition(WinterHud.WATERMARK, doubleValue("hud.watermark.x", 0.0), doubleValue("hud.watermark.y", 0.0));
 			WinterHud.loadPosition(WinterHud.POWERUP_TIMER, doubleValue("hud.powerupTimer.x", 0.0), doubleValue("hud.powerupTimer.y", 0.075));
 			WinterHud.loadPosition(WinterHud.POWERUP_PREDICTOR, doubleValue("hud.powerupPredictor.x", 0.0), doubleValue("hud.powerupPredictor.y", 0.155));
+			WinterHud.loadPosition(WinterHud.SCOREBOARD, doubleValue("hud.scoreboard.x", 1.0), doubleValue("hud.scoreboard.y", 0.5),
+				booleanValue("hud.scoreboard.positioned", false));
+			WinterHud.loadPosition(WinterHud.BOSSBAR, doubleValue("hud.bossbar.x", 0.5), doubleValue("hud.bossbar.y", 0.02),
+				booleanValue("hud.bossbar.positioned", false));
 			WinterHud.loadElementScale(WinterHud.WATERMARK, doubleValue("hud.watermark.scale", 1.0));
 			WinterHud.loadElementScale(WinterHud.POWERUP_TIMER, doubleValue("hud.powerupTimer.scale", 1.0));
 			WinterHud.loadElementScale(WinterHud.POWERUP_PREDICTOR, doubleValue("hud.powerupPredictor.scale", 1.0));
+			WinterHud.loadElementScale(WinterHud.SCOREBOARD, doubleValue("hud.scoreboard.scale", 1.0));
+			WinterHud.loadElementScale(WinterHud.BOSSBAR, doubleValue("hud.bossbar.scale", 1.0));
 			AutoRevive.setEnabled(booleanValue("assistance.autoRevive", false));
 			AimAssist.setBindCode(intValue("assistance.aimAssist.bind", 1001));
 			AimAssist.setFov(intValue("assistance.aimAssist.fov", 30));
@@ -121,6 +129,8 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.playerVisibility", Boolean.toString(PlayerVisibility.isEnabled()));
 		VALUES.setProperty("visuals.playerVisibility.range", Integer.toString(PlayerVisibility.getRenderDistance()));
 		VALUES.setProperty("hud.watermark", Boolean.toString(WinterHud.isWatermarkEnabled()));
+		VALUES.setProperty("hud.scoreboard.enabled", Boolean.toString(WinterHud.isScoreboardEnabled()));
+		VALUES.setProperty("hud.bossbar.enabled", Boolean.toString(WinterHud.isBossbarEnabled()));
 		VALUES.setProperty("hud.powerupTracker.enabled", Boolean.toString(PowerupTracker.isEnabled()));
 		VALUES.setProperty("hud.powerupTracker.timer", Boolean.toString(PowerupTracker.isTimerEnabled()));
 		VALUES.setProperty("hud.powerupTracker.predictor", Boolean.toString(PowerupTracker.isPredictorEnabled()));
@@ -130,9 +140,17 @@ public final class WinterConfig {
 		VALUES.setProperty("hud.powerupTimer.y", Double.toString(WinterHud.getY(WinterHud.POWERUP_TIMER)));
 		VALUES.setProperty("hud.powerupPredictor.x", Double.toString(WinterHud.getX(WinterHud.POWERUP_PREDICTOR)));
 		VALUES.setProperty("hud.powerupPredictor.y", Double.toString(WinterHud.getY(WinterHud.POWERUP_PREDICTOR)));
+		VALUES.setProperty("hud.scoreboard.x", Double.toString(WinterHud.getX(WinterHud.SCOREBOARD)));
+		VALUES.setProperty("hud.scoreboard.y", Double.toString(WinterHud.getY(WinterHud.SCOREBOARD)));
+		VALUES.setProperty("hud.scoreboard.positioned", Boolean.toString(WinterHud.hasCustomPosition(WinterHud.SCOREBOARD)));
+		VALUES.setProperty("hud.bossbar.x", Double.toString(WinterHud.getX(WinterHud.BOSSBAR)));
+		VALUES.setProperty("hud.bossbar.y", Double.toString(WinterHud.getY(WinterHud.BOSSBAR)));
+		VALUES.setProperty("hud.bossbar.positioned", Boolean.toString(WinterHud.hasCustomPosition(WinterHud.BOSSBAR)));
 		VALUES.setProperty("hud.watermark.scale", Double.toString(WinterHud.getElementScale(WinterHud.WATERMARK)));
 		VALUES.setProperty("hud.powerupTimer.scale", Double.toString(WinterHud.getElementScale(WinterHud.POWERUP_TIMER)));
 		VALUES.setProperty("hud.powerupPredictor.scale", Double.toString(WinterHud.getElementScale(WinterHud.POWERUP_PREDICTOR)));
+		VALUES.setProperty("hud.scoreboard.scale", Double.toString(WinterHud.getElementScale(WinterHud.SCOREBOARD)));
+		VALUES.setProperty("hud.bossbar.scale", Double.toString(WinterHud.getElementScale(WinterHud.BOSSBAR)));
 		VALUES.setProperty("assistance.autoRevive", Boolean.toString(AutoRevive.isEnabled()));
 		VALUES.setProperty("assistance.aimAssist", Boolean.toString(AimAssist.isEnabled()));
 		VALUES.setProperty("assistance.triggerbot", Boolean.toString(Triggerbot.isEnabled()));
