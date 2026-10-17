@@ -10,6 +10,7 @@ import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.assistance.AimAssist;
 import dev.luxnet.winter.client.assistance.AimAssistHud;
 import dev.luxnet.winter.client.assistance.Triggerbot;
+import dev.luxnet.winter.client.assistance.RightClicker;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
 import dev.luxnet.winter.client.visuals.MobEsp;
@@ -31,12 +32,14 @@ public class WinterClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		WinterHud.register();
 		PowerupEsp.registerHud();
+		MobEsp.registerHud();
 		AimAssistHud.register();
 		WinterConfig.load(Minecraft.getInstance());
 		PowerupTracker.register();
 		AreaSelector.register();
 		AimAssist.registerWorldRender();
 		Triggerbot.register();
+		RightClicker.register();
 		DrawPredict.registerWorldRender();
 		BulletTracers.registerWorldRender();
 		LuckyChestEsp.registerWorldRender();

@@ -8,6 +8,7 @@ import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.assistance.AimAssist;
 import dev.luxnet.winter.client.assistance.Triggerbot;
+import dev.luxnet.winter.client.assistance.RightClicker;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -55,6 +56,9 @@ public final class WinterConfig {
 			MobEsp.setEnabled(booleanValue("visuals.mobEsp", false));
 			MobEsp.setRenderDistance(intValue("visuals.mobEsp.range", 64));
 			MobEsp.setDamageBlinkEnabled(booleanValue("visuals.mobEsp.damageBlink", true));
+			MobEsp.loadHealthNametagMode(VALUES.getProperty("visuals.mobEsp.healthNametagMode", "NONE"));
+			MobEsp.setBossNametagDistance(intValue("visuals.mobEsp.bossNametagDistance", 64));
+			MobEsp.setNormalNametagDistance(intValue("visuals.mobEsp.normalNametagDistance", 32));
 			TeamEsp.setEnabled(booleanValue("visuals.teamEsp", false));
 			TeamEsp.setRenderDistance(intValue("visuals.teamEsp.range", 64));
 			PowerupEsp.setEnabled(booleanValue("visuals.powerupEsp", false));
@@ -96,6 +100,8 @@ public final class WinterConfig {
 			Triggerbot.setThroughWalls(booleanValue("assistance.triggerbot.throughWalls", false));
 			Triggerbot.setActivationBind(intValue("assistance.triggerbot.bind", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN));
 			Triggerbot.setDelayMs(intValue("assistance.triggerbot.delayMs", 0));
+			RightClicker.loadCpsRange(intValue("assistance.rightClicker.minCps", 8), intValue("assistance.rightClicker.maxCps", 12));
+			RightClicker.setEnabled(booleanValue("assistance.rightClicker", false));
 			Freecam.setBindKey(intValue("assistance.freecam.bind", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN));
 			double freecamSpeed = doubleValue("assistance.freecam.speed", 0.80);
 			if (Math.abs(freecamSpeed - 0.45) < 0.000001) freecamSpeed = 0.80;
@@ -127,6 +133,9 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.mobEsp", Boolean.toString(MobEsp.isEnabled()));
 		VALUES.setProperty("visuals.mobEsp.range", Integer.toString(MobEsp.getRenderDistance()));
 		VALUES.setProperty("visuals.mobEsp.damageBlink", Boolean.toString(MobEsp.isDamageBlinkEnabled()));
+		VALUES.setProperty("visuals.mobEsp.healthNametagMode", MobEsp.getHealthNametagMode().name());
+		VALUES.setProperty("visuals.mobEsp.bossNametagDistance", Integer.toString(MobEsp.getBossNametagDistance()));
+		VALUES.setProperty("visuals.mobEsp.normalNametagDistance", Integer.toString(MobEsp.getNormalNametagDistance()));
 		VALUES.setProperty("visuals.teamEsp", Boolean.toString(TeamEsp.isEnabled()));
 		VALUES.setProperty("visuals.teamEsp.range", Integer.toString(TeamEsp.getRenderDistance()));
 		VALUES.setProperty("visuals.powerupEsp", Boolean.toString(PowerupEsp.isEnabled()));
@@ -170,6 +179,9 @@ public final class WinterConfig {
 		VALUES.setProperty("assistance.triggerbot.throughWalls", Boolean.toString(Triggerbot.isThroughWalls()));
 		VALUES.setProperty("assistance.triggerbot.bind", Integer.toString(Triggerbot.getActivationBind()));
 		VALUES.setProperty("assistance.triggerbot.delayMs", Integer.toString(Triggerbot.getDelayMs()));
+		VALUES.setProperty("assistance.rightClicker", Boolean.toString(RightClicker.isEnabled()));
+		VALUES.setProperty("assistance.rightClicker.minCps", Integer.toString(RightClicker.getMinimumCps()));
+		VALUES.setProperty("assistance.rightClicker.maxCps", Integer.toString(RightClicker.getMaximumCps()));
 		VALUES.setProperty("assistance.aimAssist.bind", Integer.toString(AimAssist.getBindCode()));
 		VALUES.setProperty("assistance.aimAssist.fov", Integer.toString(AimAssist.getFov()));
 		VALUES.setProperty("assistance.aimAssist.fovCircle", Boolean.toString(AimAssist.isFovCircleEnabled()));

@@ -8,6 +8,7 @@ import dev.luxnet.winter.client.assistance.AimAssist;
 import dev.luxnet.winter.client.assistance.Triggerbot;
 import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.assistance.SkillBind;
+import dev.luxnet.winter.client.assistance.RightClicker;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -67,7 +68,7 @@ public class WinterScreen extends Screen {
 	public static void loadMenuState(String categoryName, int module) {
 		try { savedCategory = Category.valueOf(categoryName); }
 		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
-		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module >= 19 && module <= 23 || module >= 0 && module <= 8
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module >= 19 && module <= 24 || module >= 0 && module <= 8
 			? module : -1;
 	}
 
@@ -246,6 +247,15 @@ public class WinterScreen extends Screen {
 				drawRangeSetting(graphics, left, right, y, MobEsp.getRenderDistance());
 				drawModuleRow(graphics, left, right, y + 56,
 					"Damage Blink: " + (MobEsp.isDamageBlinkEnabled() ? "ON" : "OFF"), MobEsp.isDamageBlinkEnabled());
+				drawModuleRow(graphics, left, right, y + 82,
+					"Health Nametag: " + MobEsp.getHealthNametagMode().name(),
+					MobEsp.getHealthNametagMode() != MobEsp.HealthNametagMode.NONE);
+				drawSettingLabel(graphics, left, right, y + 109, "Boss Nametag",
+					MobEsp.getBossNametagDistance() + " blocks");
+				drawSlider(graphics, left, right, y + 124, nametagDistanceProgress(MobEsp.getBossNametagDistance()));
+				drawSettingLabel(graphics, left, right, y + 143, "Normal Nametag",
+					MobEsp.getNormalNametagDistance() + " blocks");
+				drawSlider(graphics, left, right, y + 158, nametagDistanceProgress(MobEsp.getNormalNametagDistance()));
 			}
 			case 3 -> drawRangeSetting(graphics, left, right, y, TeamEsp.getRenderDistance());
 			case 4 -> drawRangeSetting(graphics, left, right, y, PowerupEsp.getRenderDistance());
@@ -292,7 +302,7 @@ public class WinterScreen extends Screen {
 	}
 
 	private int visualExpansionHeight(int module) {
-		return switch (module) { case 0 -> 84; case 2 -> 84; case 5 -> 55; case 7 -> 174; default -> 53; };
+		return switch (module) { case 0 -> 84; case 2 -> 178; case 5 -> 55; case 7 -> 174; default -> 53; };
 	}
 
 	private boolean visualModuleEnabled(int module) {
@@ -341,7 +351,7 @@ public class WinterScreen extends Screen {
 	}
 
 	private void renderAssistance(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
-		for (int index = 0; index < 5; index++) {
+		for (int index = 0; index < 6; index++) {
 			int module = assistanceModuleId(index);
 			int y = assistanceRowY(index, contentTop);
 			boolean enabled = assistanceModuleEnabled(index);
@@ -379,6 +389,11 @@ public class WinterScreen extends Screen {
 				String bind = waitingForTriggerbotBind ? "Press a key or mouse button..." : triggerbotBindName();
 				drawBindRow(graphics, left, right, y + 119, "Activation key", waitingForTriggerbotBind, bind);
 			}
+		} else if (module == 24) {
+			drawSettingLabel(graphics, left, right, y + 27, "CPS range",
+				RightClicker.getMinimumCps() + " - " + RightClicker.getMaximumCps());
+			drawRangeSlider(graphics, left, right, y + 47,
+				cpsProgress(RightClicker.getMinimumCps()), cpsProgress(RightClicker.getMaximumCps()));
 		}
 	}
 
@@ -400,7 +415,7 @@ public class WinterScreen extends Screen {
 		return keyName(code);
 	}
 
-	private int assistanceModuleId(int index) { return index == 0 ? 19 : 19 + index; }
+	private int assistanceModuleId(int index) { return 19 + index; }
 	private int assistanceRowY(int index, int top) {
 		int y = top;
 		for (int previous = 0; previous < index; previous++) {
@@ -413,13 +428,13 @@ public class WinterScreen extends Screen {
 	private int assistanceExpansionHeight(int module) {
 		return switch (module) {
 			case 20 -> 82; case 21 -> 55; case 22 -> 120;
-			case 23 -> Triggerbot.isOnKeyMode() ? 148 : 120; default -> 0;
+			case 23 -> Triggerbot.isOnKeyMode() ? 148 : 120; case 24 -> 67; default -> 0;
 		};
 	}
 	private int categoryContentHeight() {
 		if (selectedCategory == Category.ASSISTANCE) {
-			int height = 5 * 27;
-			if (expandedModule >= 20 && expandedModule <= 23) height += assistanceExpansionHeight(expandedModule);
+			int height = 6 * 27;
+			if (expandedModule >= 20 && expandedModule <= 24) height += assistanceExpansionHeight(expandedModule);
 			return height;
 		}
 		if (selectedCategory == Category.VISUALS) {
@@ -432,19 +447,19 @@ public class WinterScreen extends Screen {
 	private boolean assistanceModuleEnabled(int index) {
 		return switch (index) {
 			case 0 -> AutoRevive.isEnabled(); case 1 -> Freecam.isEnabled(); case 2 -> SkillBind.isEnabled();
-			case 3 -> AimAssist.isEnabled(); case 4 -> Triggerbot.isEnabled(); default -> false;
+			case 3 -> AimAssist.isEnabled(); case 4 -> Triggerbot.isEnabled(); case 5 -> RightClicker.isEnabled(); default -> false;
 		};
 	}
 	private String assistanceModuleName(int index) {
 		return switch (index) {
 			case 0 -> "Auto Revive"; case 1 -> "Freecam"; case 2 -> "Skill Bind";
-			case 3 -> "Aim Assist"; case 4 -> "Triggerbot"; default -> "";
+			case 3 -> "Aim Assist"; case 4 -> "Triggerbot"; case 5 -> "Right Clicker"; default -> "";
 		};
 	}
 	private void toggleAssistanceModule(int index) {
 		switch (index) {
 			case 0 -> AutoRevive.toggle(); case 1 -> Freecam.toggle(); case 2 -> SkillBind.toggle();
-			case 3 -> AimAssist.toggle(); case 4 -> Triggerbot.toggle(); default -> { }
+			case 3 -> AimAssist.toggle(); case 4 -> Triggerbot.toggle(); case 5 -> RightClicker.toggle(); default -> { }
 		}
 	}
 	private static boolean inside(int value, int start, int end) { return value >= start && value <= end; }
@@ -478,9 +493,20 @@ public class WinterScreen extends Screen {
 		graphics.fill(knobX - 3, y - 3, knobX + 4, y + 7, 0xFFEAF7FC);
 	}
 
+	private void drawRangeSlider(GuiGraphics graphics, int left, int right, int y, double minProgress, double maxProgress) {
+		graphics.fill(left, y, right, y + 4, 0xFF38414D);
+		int minX = left + (int) Math.round((right - left) * minProgress);
+		int maxX = left + (int) Math.round((right - left) * maxProgress);
+		graphics.fill(minX, y, maxX, y + 4, 0xFF70D8F5);
+		graphics.fill(minX - 3, y - 3, minX + 4, y + 7, 0xFFEAF7FC);
+		graphics.fill(maxX - 3, y - 3, maxX + 4, y + 7, 0xFFEAF7FC);
+	}
+
 	private double lifetimeProgress() { return (BulletTracers.getLifetimeMs() - 200) / 2800.0; }
 	private double thicknessProgress() { return (BulletTracers.getThickness() - 0.08) / 0.56; }
 	private double rangeProgress(int distance) { return (distance - 16) / 112.0; }
+	private double nametagDistanceProgress(int distance) { return distance / 128.0; }
+	private double cpsProgress(int cps) { return (cps - 1) / 19.0; }
 	private int contentLeft() { return panelX + SIDEBAR_WIDTH + 4 + CONTENT_PADDING; }
 	private int contentRight() { return panelX + panelWidth - 12; }
 	private int contentTop() { return panelY + HEADER_HEIGHT + 14; }
@@ -508,6 +534,14 @@ public class WinterScreen extends Screen {
 			AimAssist.setFov(5 + (int) Math.round(progress * 55.0));
 		} else if (activeSlider == 9) {
 			Triggerbot.setDelayMs((int) Math.round(progress * 50.0) * 10);
+		} else if (activeSlider == 10) {
+			MobEsp.setBossNametagDistance((int) Math.round(progress * 128.0));
+		} else if (activeSlider == 11) {
+			MobEsp.setNormalNametagDistance((int) Math.round(progress * 128.0));
+		} else if (activeSlider == 12) {
+			RightClicker.setMinimumCps(1 + (int) Math.round(progress * 19.0));
+		} else if (activeSlider == 13) {
+			RightClicker.setMaximumCps(1 + (int) Math.round(progress * 19.0));
 		}
 	}
 
@@ -663,7 +697,7 @@ public class WinterScreen extends Screen {
 				}
 			} else if (selectedCategory == Category.ASSISTANCE) {
 				int y = (int) event.y() + scrollOffset;
-				for (int index = 0; index < 5; index++) {
+				for (int index = 0; index < 6; index++) {
 					int module = assistanceModuleId(index);
 					int rowY = assistanceRowY(index, top);
 					if (y >= rowY && y < rowY + 21) {
@@ -699,6 +733,15 @@ public class WinterScreen extends Screen {
 					if (Triggerbot.isOnKeyMode() && inside(y, rowY + 119, rowY + 141)) {
 						waitingForTriggerbotBind = true; return true;
 					}
+				} else if (event.button() == 0 && expandedModule == 24) {
+					int rowY = assistanceRowY(5, top);
+					if (Math.abs(y - (rowY + 47)) <= 7) {
+						int minX = contentLeft() + (int) Math.round((contentRight() - contentLeft()) * cpsProgress(RightClicker.getMinimumCps()));
+						int maxX = contentLeft() + (int) Math.round((contentRight() - contentLeft()) * cpsProgress(RightClicker.getMaximumCps()));
+						activeSlider = Math.abs(event.x() - minX) <= Math.abs(event.x() - maxX) ? 12 : 13;
+						updateSlider(event.x());
+						return true;
+					}
 				}
 			} else if (selectedCategory == Category.VISUALS) {
 				int y = (int) event.y() + scrollOffset;
@@ -728,6 +771,9 @@ public class WinterScreen extends Screen {
 					if (expandedModule == 2 && inside(y, rowY + 56, rowY + 77)) {
 						MobEsp.setDamageBlinkEnabled(!MobEsp.isDamageBlinkEnabled()); return true;
 					}
+					if (expandedModule == 2 && inside(y, rowY + 82, rowY + 104)) {
+						MobEsp.cycleHealthNametagMode(); return true;
+					}
 					if (expandedModule == 0 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 0;
 					else if (expandedModule == 0 && Math.abs(y - (rowY + 73)) <= 6) activeSlider = 1;
 					else if (expandedModule == 1 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 2;
@@ -735,6 +781,8 @@ public class WinterScreen extends Screen {
 					else if (expandedModule == 3 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 4;
 					else if (expandedModule == 4 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 5;
 					else if (expandedModule == 6 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 7;
+					else if (expandedModule == 2 && Math.abs(y - (rowY + 124)) <= 6) activeSlider = 10;
+					else if (expandedModule == 2 && Math.abs(y - (rowY + 158)) <= 6) activeSlider = 11;
 					if (activeSlider != -1) { updateSlider(event.x()); return true; }
 				}
 			}
