@@ -14,7 +14,8 @@
 		"PlayerVisibilityRendererMixin",
 		"PlayerVisibilityNameTagMixin",
 		"HudOverlayMixin",
-		"BossHealthOverlayAccessor"
+		"BossHealthOverlayAccessor",
+		"ChatComponentFilterMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -16,6 +16,7 @@ import dev.luxnet.winter.client.visuals.TeamEsp;
 import dev.luxnet.winter.client.visuals.PowerupEsp;
 import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.visuals.PlayerVisibility;
+import dev.luxnet.winter.client.visuals.ChatFilter;
 import dev.luxnet.winter.client.WinterHud;
 import dev.luxnet.winter.client.PowerupTracker;
 import net.minecraft.client.gui.GuiGraphics;
@@ -65,7 +66,7 @@ public class WinterScreen extends Screen {
 	public static void loadMenuState(String categoryName, int module) {
 		try { savedCategory = Category.valueOf(categoryName); }
 		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
-		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module >= 19 && module <= 23 || module >= 0 && module <= 6
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module >= 19 && module <= 23 || module >= 0 && module <= 7
 			? module : -1;
 	}
 
@@ -220,7 +221,7 @@ public class WinterScreen extends Screen {
 	}
 
 	private void renderVisuals(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
-		for (int module = 0; module < 7; module++) {
+		for (int module = 0; module < 8; module++) {
 			int y = visualRowY(module, contentTop);
 			boolean enabled = visualModuleEnabled(module);
 			drawModuleRow(graphics, contentX, contentRight, y - scrollOffset,
@@ -257,6 +258,15 @@ public class WinterScreen extends Screen {
 			}
 			case 6 -> drawSettingLabel(graphics, left, right, y + 27, "Distance",
 				PlayerVisibility.getRenderDistance() + " blocks");
+			case 7 -> {
+				ChatFilter.Filter[] filters = ChatFilter.Filter.values();
+				for (int i = 0; i < filters.length; i++) {
+					ChatFilter.Filter filter = filters[i];
+					drawModuleRow(graphics, left, right, y + 27 + i * 24,
+						filter.label() + ": " + (ChatFilter.isFilterEnabled(filter) ? "ON" : "OFF"),
+						ChatFilter.isFilterEnabled(filter));
+				}
+			}
 			default -> { }
 		}
 		if (module == 6) drawSlider(graphics, left, right, y + 42, (PlayerVisibility.getRenderDistance() - 4) / 60.0);
@@ -277,14 +287,14 @@ public class WinterScreen extends Screen {
 	}
 
 	private int visualExpansionHeight(int module) {
-		return switch (module) { case 0 -> 84; case 2 -> 84; case 5 -> 55; default -> 53; };
+		return switch (module) { case 0 -> 84; case 2 -> 84; case 5 -> 55; case 7 -> 174; default -> 53; };
 	}
 
 	private boolean visualModuleEnabled(int module) {
 		return switch (module) {
 			case 0 -> BulletTracers.isEnabled(); case 1 -> LuckyChestEsp.isEnabled(); case 2 -> MobEsp.isEnabled();
 			case 3 -> TeamEsp.isEnabled(); case 4 -> PowerupEsp.isEnabled(); case 5 -> BrokenWindowEsp.isEnabled();
-			case 6 -> PlayerVisibility.isEnabled(); default -> false;
+			case 6 -> PlayerVisibility.isEnabled(); case 7 -> ChatFilter.isEnabled(); default -> false;
 		};
 	}
 
@@ -292,14 +302,14 @@ public class WinterScreen extends Screen {
 		return switch (module) {
 			case 0 -> "BulletTracers"; case 1 -> "Lucky Chest ESP"; case 2 -> "Mob ESP";
 			case 3 -> "Team ESP"; case 4 -> "Powerup ESP"; case 5 -> "Broken Window ESP";
-			case 6 -> "Player Visibility"; default -> "";
+			case 6 -> "Player Visibility"; case 7 -> "Chat Filter"; default -> "";
 		};
 	}
 	private void toggleVisualModule(int module) {
-		switch (module) {
+			switch (module) {
 			case 0 -> BulletTracers.toggle(); case 1 -> LuckyChestEsp.toggle(); case 2 -> MobEsp.toggle();
 			case 3 -> TeamEsp.toggle(); case 4 -> PowerupEsp.toggle(); case 5 -> BrokenWindowEsp.toggle();
-			case 6 -> PlayerVisibility.toggle(); default -> { }
+			case 6 -> PlayerVisibility.toggle(); case 7 -> ChatFilter.toggle(); default -> { }
 		}
 	}
 
@@ -408,8 +418,8 @@ public class WinterScreen extends Screen {
 			return height;
 		}
 		if (selectedCategory == Category.VISUALS) {
-			int height = 7 * 27;
-			if (expandedModule >= 0 && expandedModule <= 6) height += visualExpansionHeight(expandedModule);
+			int height = 8 * 27;
+			if (expandedModule >= 0 && expandedModule <= 7) height += visualExpansionHeight(expandedModule);
 			return height;
 		}
 		return 0;
@@ -687,7 +697,7 @@ public class WinterScreen extends Screen {
 				}
 			} else if (selectedCategory == Category.VISUALS) {
 				int y = (int) event.y() + scrollOffset;
-				for (int module = 0; module < 7; module++) {
+				for (int module = 0; module < 8; module++) {
 					int rowY = visualRowY(module, top);
 					if (inside(y, rowY, rowY + 20)) {
 						if (event.button() == 0) toggleVisualModule(module);
@@ -695,8 +705,18 @@ public class WinterScreen extends Screen {
 						return true;
 					}
 				}
-				if (event.button() == 0 && expandedModule >= 0 && expandedModule <= 6) {
+				if (event.button() == 0 && expandedModule >= 0 && expandedModule <= 7) {
 					int rowY = visualRowY(expandedModule, top);
+					if (expandedModule == 7) {
+						ChatFilter.Filter[] filters = ChatFilter.Filter.values();
+						for (int i = 0; i < filters.length; i++) {
+							if (inside(y, rowY + 27 + i * 24, rowY + 48 + i * 24)) {
+								ChatFilter.Filter filter = filters[i];
+								ChatFilter.setFilterEnabled(filter, !ChatFilter.isFilterEnabled(filter));
+								return true;
+							}
+						}
+					}
 					if (expandedModule == 5 && inside(y, rowY + 27, rowY + 49)) {
 						BrokenWindowEsp.cycleMap(); return true;
 					}

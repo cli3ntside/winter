@@ -15,6 +15,7 @@ import dev.luxnet.winter.client.visuals.MobEsp;
 import dev.luxnet.winter.client.visuals.PowerupEsp;
 import dev.luxnet.winter.client.visuals.TeamEsp;
 import dev.luxnet.winter.client.visuals.PlayerVisibility;
+import dev.luxnet.winter.client.visuals.ChatFilter;
 import net.minecraft.client.Minecraft;
 
 import java.io.IOException;
@@ -61,6 +62,10 @@ public final class WinterConfig {
 			BrokenWindowEsp.setSelectedMap(VALUES.getProperty("visuals.brokenWindowEsp.map", "deadend"));
 			PlayerVisibility.setEnabled(booleanValue("visuals.playerVisibility", false));
 			PlayerVisibility.setRenderDistance(intValue("visuals.playerVisibility.range", 16));
+			ChatFilter.setEnabled(booleanValue("visuals.chatFilter", false));
+			for (ChatFilter.Filter filter : ChatFilter.Filter.values()) {
+				ChatFilter.setFilterEnabled(filter, booleanValue("visuals.chatFilter." + filter.key(), filter.defaultValue()));
+			}
 			WinterHud.setWatermarkEnabled(booleanValue("hud.watermark", true));
 			WinterHud.setScoreboardEnabled(booleanValue("hud.scoreboard.enabled", true));
 			WinterHud.setBossbarEnabled(booleanValue("hud.bossbar.enabled", true));
@@ -128,6 +133,10 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.brokenWindowEsp.map", BrokenWindowEsp.getSelectedMapId());
 		VALUES.setProperty("visuals.playerVisibility", Boolean.toString(PlayerVisibility.isEnabled()));
 		VALUES.setProperty("visuals.playerVisibility.range", Integer.toString(PlayerVisibility.getRenderDistance()));
+		VALUES.setProperty("visuals.chatFilter", Boolean.toString(ChatFilter.isEnabled()));
+		for (ChatFilter.Filter filter : ChatFilter.Filter.values()) {
+			VALUES.setProperty("visuals.chatFilter." + filter.key(), Boolean.toString(ChatFilter.isFilterEnabled(filter)));
+		}
 		VALUES.setProperty("hud.watermark", Boolean.toString(WinterHud.isWatermarkEnabled()));
 		VALUES.setProperty("hud.scoreboard.enabled", Boolean.toString(WinterHud.isScoreboardEnabled()));
 		VALUES.setProperty("hud.bossbar.enabled", Boolean.toString(WinterHud.isBossbarEnabled()));
