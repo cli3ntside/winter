@@ -16,6 +16,7 @@ import dev.luxnet.winter.client.visuals.PowerupEsp;
 import dev.luxnet.winter.client.visuals.TeamEsp;
 import dev.luxnet.winter.client.visuals.PlayerVisibility;
 import dev.luxnet.winter.client.visuals.ChatFilter;
+import dev.luxnet.winter.client.visuals.WallbangTransparency;
 import net.minecraft.client.Minecraft;
 
 import java.io.IOException;
@@ -63,6 +64,7 @@ public final class WinterConfig {
 			PlayerVisibility.setEnabled(booleanValue("visuals.playerVisibility", false));
 			PlayerVisibility.setRenderDistance(intValue("visuals.playerVisibility.range", 16));
 			ChatFilter.setEnabled(booleanValue("visuals.chatFilter", false));
+			WallbangTransparency.setEnabled(booleanValue("visuals.wallbangTransparency", false));
 			for (ChatFilter.Filter filter : ChatFilter.Filter.values()) {
 				ChatFilter.setFilterEnabled(filter, booleanValue("visuals.chatFilter." + filter.key(), filter.defaultValue()));
 			}
@@ -134,6 +136,7 @@ public final class WinterConfig {
 		VALUES.setProperty("visuals.playerVisibility", Boolean.toString(PlayerVisibility.isEnabled()));
 		VALUES.setProperty("visuals.playerVisibility.range", Integer.toString(PlayerVisibility.getRenderDistance()));
 		VALUES.setProperty("visuals.chatFilter", Boolean.toString(ChatFilter.isEnabled()));
+		VALUES.setProperty("visuals.wallbangTransparency", Boolean.toString(WallbangTransparency.isEnabled()));
 		for (ChatFilter.Filter filter : ChatFilter.Filter.values()) {
 			VALUES.setProperty("visuals.chatFilter." + filter.key(), Boolean.toString(ChatFilter.isFilterEnabled(filter)));
 		}
