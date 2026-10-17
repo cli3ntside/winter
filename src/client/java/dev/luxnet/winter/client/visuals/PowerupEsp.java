@@ -1,14 +1,20 @@
 package dev.luxnet.winter.client.visuals;
 
 import dev.luxnet.winter.client.WinterConfig;
+import dev.luxnet.winter.client.PowerupTracker;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.resources.Identifier;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +35,10 @@ public final class PowerupEsp {
 
 	public static void registerWorldRender() {
 		WorldRenderEvents.END_MAIN.register(PowerupEsp::render);
+	}
+
+	public static void registerHud() {
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("winter", "powerup_esp_labels"), PowerupEsp::renderLabels);
 	}
 
 	public static boolean isEnabled() { return enabled; }
@@ -93,14 +103,65 @@ public final class PowerupEsp {
 			if (stand.level() != minecraft.level || !isPowerup(stand)
 				|| stand.position().distanceToSqr(camera) > distance * distance) continue;
 			AABB bounds = stand.getBoundingBox();
-		double centerX = (bounds.minX + bounds.maxX) * 0.5;
-		double centerZ = (bounds.minZ + bounds.maxZ) * 0.5;
-		double height = Math.max(1.0, bounds.maxY - bounds.minY);
-		AABB box = new AABB(centerX - 0.3, bounds.minY, centerZ - 0.3,
-			centerX + 0.3, bounds.minY + height, centerZ + 0.3);
-		EspBoxRenderer.draw(context, box, POWERUP_COLOR, 2.0F);
-			drawLabel(context, stand, powerupLabel(stand), camera, box.maxY + 0.25);
+			double centerX = (bounds.minX + bounds.maxX) * 0.5;
+			double centerZ = (bounds.minZ + bounds.maxZ) * 0.5;
+			double height = Math.max(1.0, bounds.maxY - bounds.minY);
+			AABB box = new AABB(centerX - 0.3, bounds.minY, centerZ - 0.3,
+				centerX + 0.3, bounds.minY + height, centerZ + 0.3);
+			EspBoxRenderer.draw(context, box, POWERUP_COLOR, 2.0F);
 		}
+	}
+
+	/** HUD projection keeps the tags visible through walls, like Youkai's Nametags module. */
+	private static void renderLabels(GuiGraphics graphics, DeltaTracker deltaTracker) {
+		if (!enabled || TARGETS.isEmpty()) return;
+		Minecraft minecraft = Minecraft.getInstance();
+		if (minecraft.level == null || minecraft.player == null || minecraft.options.hideGui || minecraft.screen != null) return;
+		float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
+		Vec3 cameraPosition = minecraft.gameRenderer.getMainCamera().position();
+		Matrix4f view = new Matrix4f().rotation(minecraft.gameRenderer.getMainCamera().rotation()).invert();
+		// In 1.21.11 this method takes FOV in degrees, not the frame's partial tick.
+		Matrix4f projection = minecraft.gameRenderer.getProjectionMatrix(minecraft.options.fov().get());
+		int screenWidth = graphics.guiWidth();
+		int screenHeight = graphics.guiHeight();
+		for (ArmorStand stand : TARGETS) {
+			if (stand.level() != minecraft.level || !isPowerup(stand)) continue;
+			Vec3 position = stand.getPosition(partialTick);
+			if (position.distanceToSqr(cameraPosition) > (double) renderDistance * renderDistance) continue;
+			Vector4f point = new Vector4f((float) (position.x - cameraPosition.x),
+				(float) (position.y + stand.getBbHeight() + 0.3 - cameraPosition.y),
+				(float) (position.z - cameraPosition.z), 1.0F);
+			view.transform(point);
+			projection.transform(point);
+			if (point.w <= 0.0F) continue;
+			float ndcX = point.x / point.w;
+			float ndcY = point.y / point.w;
+			float ndcZ = point.z / point.w;
+			if (ndcZ < -1.0F || ndcZ > 1.0F) continue;
+			int x = Math.round((ndcX + 1.0F) * 0.5F * screenWidth);
+			int y = Math.round((1.0F - ndcY) * 0.5F * screenHeight);
+			if (x < 0 || x >= screenWidth || y < 0 || y >= screenHeight) continue;
+			drawTag(graphics, minecraft, x, y, powerupLabel(stand),
+				formatLifetime(PowerupTracker.droppedSeconds(stand.getId())));
+		}
+	}
+
+	private static void drawTag(GuiGraphics graphics, Minecraft minecraft, int centerX, int topY, String name, String timer) {
+		int nameWidth = minecraft.font.width(name);
+		int timerWidth = minecraft.font.width(timer);
+		int width = Math.max(nameWidth, timerWidth) + 8;
+		int left = centerX - width / 2;
+		int top = topY - minecraft.font.lineHeight - 4;
+		graphics.fill(left, top, left + width, top + minecraft.font.lineHeight * 2 + 6, 0x990A0D12);
+		graphics.drawString(minecraft.font, name, centerX - nameWidth / 2, top + 1, 0xFFFFFFFF, true);
+		graphics.drawString(minecraft.font, timer, centerX - timerWidth / 2,
+			top + minecraft.font.lineHeight + 2, 0xFFB8EFFF, true);
+	}
+
+	private static String formatLifetime(int seconds) {
+		int minutes = seconds / 60;
+		int remainder = seconds % 60;
+		return String.format(Locale.ROOT, "%02d:%02d", minutes, remainder);
 	}
 
 	private static String powerupLabel(ArmorStand stand) {
@@ -116,18 +177,4 @@ public final class PowerupEsp {
 		return "Shopping Spree";
 	}
 
-	private static void drawLabel(WorldRenderContext context, ArmorStand stand, String label,
-							  Vec3 cameraPosition, double y) {
-		var matrices = context.matrices();
-		matrices.pushPose();
-		matrices.translate(stand.getX() - cameraPosition.x, y - cameraPosition.y,
-			stand.getZ() - cameraPosition.z);
-		matrices.mulPose(Minecraft.getInstance().gameRenderer.getMainCamera().rotation());
-		matrices.scale(-0.025F, -0.025F, 0.025F);
-		Font font = Minecraft.getInstance().font;
-		float x = -font.width(label) / 2.0F;
-		font.drawInBatch(label, x, 0.0F, 0xFFFFFFFF, true, matrices.last().pose(), context.consumers(),
-			Font.DisplayMode.SEE_THROUGH, 0x70000000, 0xF000F0);
-		matrices.popPose();
-	}
 }

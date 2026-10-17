@@ -30,8 +30,10 @@ public class WinterClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		WinterHud.register();
+		PowerupEsp.registerHud();
 		AimAssistHud.register();
 		WinterConfig.load(Minecraft.getInstance());
+		PowerupTracker.register();
 		AreaSelector.register();
 		AimAssist.registerWorldRender();
 		Triggerbot.register();

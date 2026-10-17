@@ -17,6 +17,7 @@ import dev.luxnet.winter.client.visuals.PowerupEsp;
 import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.visuals.PlayerVisibility;
 import dev.luxnet.winter.client.WinterHud;
+import dev.luxnet.winter.client.PowerupTracker;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -64,7 +65,7 @@ public class WinterScreen extends Screen {
 	public static void loadMenuState(String categoryName, int module) {
 		try { savedCategory = Category.valueOf(categoryName); }
 		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
-		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module >= 19 && module <= 23 || module >= 0 && module <= 6
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module >= 19 && module <= 23 || module >= 0 && module <= 6
 			? module : -1;
 	}
 
@@ -306,6 +307,17 @@ public class WinterScreen extends Screen {
 		boolean enabled = WinterHud.isWatermarkEnabled();
 		drawModuleRow(graphics, contentX, contentRight, contentTop,
 			"Watermark: " + (enabled ? "ON" : "OFF"), enabled);
+		int trackerY = contentTop + 26;
+		drawModuleRow(graphics, contentX, contentRight, trackerY,
+			"Powerup Tracker: " + (PowerupTracker.isEnabled() ? "ON" : "OFF"), PowerupTracker.isEnabled());
+		if (expandedModule == 30) {
+			drawModuleRow(graphics, contentX, contentRight, trackerY + 27,
+				"Powerup Timer: " + (PowerupTracker.isTimerEnabled() ? "ON" : "OFF"), PowerupTracker.isTimerEnabled());
+			drawModuleRow(graphics, contentX, contentRight, trackerY + 53,
+				"Powerup Predictor: " + (PowerupTracker.isPredictorEnabled() ? "ON" : "OFF"), PowerupTracker.isPredictorEnabled());
+		}
+		int editorY = trackerY + 27 + (expandedModule == 30 ? 55 : 0);
+		drawModuleRow(graphics, contentX, contentRight, editorY, "HUD Editor", false);
 	}
 
 	private void renderAssistance(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
@@ -594,6 +606,30 @@ public class WinterScreen extends Screen {
 			} else if (selectedCategory == Category.HUD && event.button() == 0) {
 				if (event.y() >= top && event.y() <= top + 21) {
 					WinterHud.toggleWatermark();
+					return true;
+				}
+				int trackerY = top + 26;
+				if (inside((int) event.y(), trackerY, trackerY + 21)) {
+					PowerupTracker.setEnabled(!PowerupTracker.isEnabled());
+					return true;
+				}
+				if (expandedModule == 30 && inside((int) event.y(), trackerY + 27, trackerY + 48)) {
+					PowerupTracker.setTimerEnabled(!PowerupTracker.isTimerEnabled());
+					return true;
+				}
+				if (expandedModule == 30 && inside((int) event.y(), trackerY + 53, trackerY + 74)) {
+					PowerupTracker.setPredictorEnabled(!PowerupTracker.isPredictorEnabled());
+					return true;
+				}
+				int editorY = trackerY + 27 + (expandedModule == 30 ? 55 : 0);
+				if (inside((int) event.y(), editorY, editorY + 21)) {
+					this.minecraft.setScreen(new HudEditorScreen(this));
+					return true;
+				}
+			} else if (selectedCategory == Category.HUD && event.button() == 1) {
+				int trackerY = top + 26;
+				if (inside((int) event.y(), trackerY, trackerY + 21)) {
+					setExpandedModule(expandedModule == 30 ? -1 : 30);
 					return true;
 				}
 			} else if (selectedCategory == Category.ASSISTANCE) {
