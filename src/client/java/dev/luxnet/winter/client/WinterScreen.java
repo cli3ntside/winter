@@ -5,6 +5,7 @@ import dev.luxnet.winter.client.debug.DrawPredict;
 import dev.luxnet.winter.client.debug.AreaSelector;
 import dev.luxnet.winter.client.assistance.AutoRevive;
 import dev.luxnet.winter.client.assistance.AimAssist;
+import dev.luxnet.winter.client.assistance.Triggerbot;
 import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
@@ -49,6 +50,7 @@ public class WinterScreen extends Screen {
 	private boolean waitingForFreecamBind;
 	private boolean waitingForSkillBind;
 	private boolean waitingForAimBind;
+	private boolean waitingForTriggerbotBind;
 	private Category selectedCategory;
 
 	private enum Category { ASSISTANCE, VISUALS, HUD, DEBUG }
@@ -62,7 +64,7 @@ public class WinterScreen extends Screen {
 	public static void loadMenuState(String categoryName, int module) {
 		try { savedCategory = Category.valueOf(categoryName); }
 		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
-		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 20 || module == 21 || module == 22 || module >= 0 && module <= 6
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module >= 19 && module <= 23 || module >= 0 && module <= 6
 			? module : -1;
 	}
 
@@ -78,6 +80,7 @@ public class WinterScreen extends Screen {
 	private void setExpandedModule(int module) {
 		expandedModule = module;
 		savedExpandedModule = module;
+		scrollOffset = 0;
 		WinterConfig.save();
 	}
 
@@ -140,33 +143,34 @@ public class WinterScreen extends Screen {
 	private void renderDebug(GuiGraphics graphics, int mouseX, int mouseY, int contentX, int contentTop,
 							 int contentBottom, int contentRight) {
 		boolean captureEnabled = ShotDebugModule.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop, "Capture: " + (captureEnabled ? "ON" : "OFF"), captureEnabled);
+		drawModuleRow(graphics, contentX, contentRight, debugRowY(0, contentTop), "Capture: " + (captureEnabled ? "ON" : "OFF"), captureEnabled);
 
 		boolean mobsEnabled = MobDebugModule.isEnabled();
-		int mobsY = contentTop + 26;
+		int mobsY = debugRowY(1, contentTop);
 		String mobsLabel = "Detect Mobs: " + (mobsEnabled ? "ON" : "OFF");
 		if (mobsEnabled) mobsLabel += " (" + MobDebugModule.getSnapshots().size() + ")";
 		drawModuleRow(graphics, contentX, contentRight, mobsY, mobsLabel, mobsEnabled);
-		int areaY = contentTop + 52;
+		int areaY = debugRowY(2, contentTop);
 		boolean areaEnabled = AreaSelector.isEnabled();
 		drawModuleRow(graphics, contentX, contentRight, areaY,
 			"Area Selector: " + (areaEnabled ? "ON" : "OFF"), areaEnabled);
 		boolean drawPredictEnabled = DrawPredict.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 78,
+		drawModuleRow(graphics, contentX, contentRight, debugRowY(3, contentTop),
 			"Draw Predict: " + (drawPredictEnabled ? "ON" : "OFF"), drawPredictEnabled);
 
 		int eventsTop = debugEventsTop();
 		if (expandedModule == DEBUG_AREA_EXPANSION) {
+			int settingsY = areaY + 27;
 			BlockPos first = AreaSelector.getFirstCorner();
 			BlockPos second = AreaSelector.getSecondCorner();
 			String firstText = first == null ? "Point 1: right click a block" : "Point 1: " + coordinates(first);
 			String secondText = second == null ? (first == null ? "Point 2: —" : "Point 2: right click a block")
 				: "Point 2: " + coordinates(second);
 			graphics.drawString(font, trimToWidth(firstText, contentRight - contentX), contentX + 2,
-				contentTop + 106, 0xFFD5DCE5, false);
+				settingsY, 0xFFD5DCE5, false);
 			graphics.drawString(font, trimToWidth(secondText, contentRight - contentX), contentX + 2,
-				contentTop + 119, 0xFFD5DCE5, false);
-			int saveY = contentTop + 134;
+				settingsY + 13, 0xFFD5DCE5, false);
+			int saveY = settingsY + 28;
 			boolean canSave = AreaSelector.canSave();
 			boolean hovered = mouseX >= contentX && mouseX <= contentRight && mouseY >= saveY && mouseY < saveY + 20;
 			graphics.fill(contentX, saveY, contentRight, saveY + 20,
@@ -176,7 +180,7 @@ public class WinterScreen extends Screen {
 				canSave ? 0xFFEAF7FC : 0xFF9AA3AF, false);
 			if (!AreaSelector.getSaveStatus().isEmpty()) {
 				graphics.drawString(font, trimToWidth(AreaSelector.getSaveStatus(), contentRight - contentX),
-					contentX + 2, contentTop + 158, 0xFF9AA3AF, false);
+					contentX + 2, settingsY + 53, 0xFF9AA3AF, false);
 			}
 		}
 
@@ -199,72 +203,102 @@ public class WinterScreen extends Screen {
 	}
 
 	private int debugEventsTop() {
-		return contentTop() + (expandedModule == DEBUG_AREA_EXPANSION ? 180 : 106);
+		return contentTop() + 106 + (expandedModule == DEBUG_AREA_EXPANSION ? debugExpansionHeight() : 0);
 	}
+
+	private int debugRowY(int index, int top) {
+		int y = top + index * 26;
+		if (expandedModule == DEBUG_AREA_EXPANSION && index > 2) y += debugExpansionHeight();
+		return y;
+	}
+
+	private int debugExpansionHeight() { return 82; }
 
 	private static String coordinates(BlockPos pos) {
 		return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
 	}
 
 	private void renderVisuals(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
-		boolean enabled = BulletTracers.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop,
-			"BulletTracers: " + (enabled ? "ON" : "OFF"), enabled);
-		boolean chestEspEnabled = LuckyChestEsp.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 27,
-			"Lucky Chest ESP: " + (chestEspEnabled ? "ON" : "OFF"), chestEspEnabled);
-		boolean mobEspEnabled = MobEsp.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 54,
-			"Mob ESP: " + (mobEspEnabled ? "ON" : "OFF"), mobEspEnabled);
-		boolean teamEspEnabled = TeamEsp.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 81,
-			"Team ESP: " + (teamEspEnabled ? "ON" : "OFF"), teamEspEnabled);
-		boolean powerupEspEnabled = PowerupEsp.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 108,
-			"Powerup ESP: " + (powerupEspEnabled ? "ON" : "OFF"), powerupEspEnabled);
-		boolean brokenWindowEspEnabled = BrokenWindowEsp.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 135,
-			"Broken Window ESP: " + (brokenWindowEspEnabled ? "ON" : "OFF"), brokenWindowEspEnabled);
-		boolean playerVisibilityEnabled = PlayerVisibility.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 162,
-			"Player Visibility: " + (playerVisibilityEnabled ? "ON" : "OFF"), playerVisibilityEnabled);
-		if (expandedModule == 0) {
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 163, "Lifetime",
-				String.format(Locale.ROOT, "%.2fs", BulletTracers.getLifetimeMs() / 1000.0));
-			drawSlider(graphics, contentX, contentRight, contentTop + 178, lifetimeProgress());
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 198, "Thickness",
-				String.format(Locale.ROOT, "%.2f", BulletTracers.getThickness()));
-			drawSlider(graphics, contentX, contentRight, contentTop + 213, thicknessProgress());
-		} else if (expandedModule == 1) {
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
-				LuckyChestEsp.getRenderDistance() + " blocks");
-			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(LuckyChestEsp.getRenderDistance()));
-		} else if (expandedModule == 2) {
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
-				MobEsp.getRenderDistance() + " blocks");
-			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(MobEsp.getRenderDistance()));
-			drawModuleRow(graphics, contentX, contentRight, contentTop + 201,
-				"Damage Blink: " + (MobEsp.isDamageBlinkEnabled() ? "ON" : "OFF"), MobEsp.isDamageBlinkEnabled());
-		} else if (expandedModule == 3) {
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
-				TeamEsp.getRenderDistance() + " blocks");
-			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(TeamEsp.getRenderDistance()));
-		} else if (expandedModule == 4) {
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 164, "Range",
-				PowerupEsp.getRenderDistance() + " blocks");
-			drawSlider(graphics, contentX, contentRight, contentTop + 181, rangeProgress(PowerupEsp.getRenderDistance()));
-		} else if (expandedModule == 5) {
-			int mapY = contentTop + 163;
-			graphics.fill(contentX, mapY, contentRight, mapY + 22, 0xAA303640);
-			graphics.drawString(font, "Map", contentX + 8, mapY + 7, 0xFFEAF7FC, false);
-			String mapName = BrokenWindowEsp.getSelectedMapName();
-			graphics.drawString(font, mapName + "  ‹ ›", contentRight - font.width(mapName + "  ‹ ›") - 8,
-				mapY + 7, 0xFF9FFFD7, false);
-		} else if (expandedModule == 6) {
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 190, "Distance",
+		for (int module = 0; module < 7; module++) {
+			int y = visualRowY(module, contentTop);
+			boolean enabled = visualModuleEnabled(module);
+			drawModuleRow(graphics, contentX, contentRight, y - scrollOffset,
+				visualModuleName(module) + ": " + (enabled ? "ON" : "OFF"), enabled);
+			if (expandedModule == module) renderVisualSettings(graphics, module, contentX, contentRight, y - scrollOffset);
+		}
+	}
+
+	private void renderVisualSettings(GuiGraphics graphics, int module, int left, int right, int y) {
+		switch (module) {
+			case 0 -> {
+				drawSettingLabel(graphics, left, right, y + 27, "Lifetime",
+					String.format(Locale.ROOT, "%.2fs", BulletTracers.getLifetimeMs() / 1000.0));
+				drawSlider(graphics, left, right, y + 42, lifetimeProgress());
+				drawSettingLabel(graphics, left, right, y + 58, "Thickness",
+					String.format(Locale.ROOT, "%.2f", BulletTracers.getThickness()));
+				drawSlider(graphics, left, right, y + 73, thicknessProgress());
+			}
+			case 1 -> drawRangeSetting(graphics, left, right, y, LuckyChestEsp.getRenderDistance());
+			case 2 -> {
+				drawRangeSetting(graphics, left, right, y, MobEsp.getRenderDistance());
+				drawModuleRow(graphics, left, right, y + 56,
+					"Damage Blink: " + (MobEsp.isDamageBlinkEnabled() ? "ON" : "OFF"), MobEsp.isDamageBlinkEnabled());
+			}
+			case 3 -> drawRangeSetting(graphics, left, right, y, TeamEsp.getRenderDistance());
+			case 4 -> drawRangeSetting(graphics, left, right, y, PowerupEsp.getRenderDistance());
+			case 5 -> {
+				int mapY = y + 27;
+				graphics.fill(left, mapY, right, mapY + 22, 0xAA303640);
+				graphics.drawString(font, "Map", left + 8, mapY + 7, 0xFFEAF7FC, false);
+				String mapName = BrokenWindowEsp.getSelectedMapName();
+				graphics.drawString(font, mapName + "  ‹ ›", right - font.width(mapName + "  ‹ ›") - 8,
+					mapY + 7, 0xFF9FFFD7, false);
+			}
+			case 6 -> drawSettingLabel(graphics, left, right, y + 27, "Distance",
 				PlayerVisibility.getRenderDistance() + " blocks");
-			drawSlider(graphics, contentX, contentRight, contentTop + 207,
-				(PlayerVisibility.getRenderDistance() - 4) / 60.0);
+			default -> { }
+		}
+		if (module == 6) drawSlider(graphics, left, right, y + 42, (PlayerVisibility.getRenderDistance() - 4) / 60.0);
+	}
+
+	private void drawRangeSetting(GuiGraphics graphics, int left, int right, int y, int distance) {
+		drawSettingLabel(graphics, left, right, y + 27, "Range", distance + " blocks");
+		drawSlider(graphics, left, right, y + 42, rangeProgress(distance));
+	}
+
+	private int visualRowY(int module, int top) {
+		int y = top;
+		for (int previous = 0; previous < module; previous++) {
+			y += 27;
+			if (expandedModule == previous) y += visualExpansionHeight(previous);
+		}
+		return y;
+	}
+
+	private int visualExpansionHeight(int module) {
+		return switch (module) { case 0 -> 84; case 2 -> 84; case 5 -> 55; default -> 53; };
+	}
+
+	private boolean visualModuleEnabled(int module) {
+		return switch (module) {
+			case 0 -> BulletTracers.isEnabled(); case 1 -> LuckyChestEsp.isEnabled(); case 2 -> MobEsp.isEnabled();
+			case 3 -> TeamEsp.isEnabled(); case 4 -> PowerupEsp.isEnabled(); case 5 -> BrokenWindowEsp.isEnabled();
+			case 6 -> PlayerVisibility.isEnabled(); default -> false;
+		};
+	}
+
+	private String visualModuleName(int module) {
+		return switch (module) {
+			case 0 -> "BulletTracers"; case 1 -> "Lucky Chest ESP"; case 2 -> "Mob ESP";
+			case 3 -> "Team ESP"; case 4 -> "Powerup ESP"; case 5 -> "Broken Window ESP";
+			case 6 -> "Player Visibility"; default -> "";
+		};
+	}
+	private void toggleVisualModule(int module) {
+		switch (module) {
+			case 0 -> BulletTracers.toggle(); case 1 -> LuckyChestEsp.toggle(); case 2 -> MobEsp.toggle();
+			case 3 -> TeamEsp.toggle(); case 4 -> PowerupEsp.toggle(); case 5 -> BrokenWindowEsp.toggle();
+			case 6 -> PlayerVisibility.toggle(); default -> { }
 		}
 	}
 
@@ -275,50 +309,113 @@ public class WinterScreen extends Screen {
 	}
 
 	private void renderAssistance(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
-		boolean reviveEnabled = AutoRevive.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop,
-			"Auto Revive: " + (reviveEnabled ? "ON" : "OFF"), reviveEnabled);
-		boolean freecamEnabled = Freecam.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 27,
-			"Freecam: " + (freecamEnabled ? "ON" : "OFF"), freecamEnabled);
-		boolean skillBindEnabled = SkillBind.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 54,
-			"Skill Bind: " + (skillBindEnabled ? "ON" : "OFF"), skillBindEnabled);
-		boolean aimAssistEnabled = AimAssist.isEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop + 81,
-			"Aim Assist: " + (aimAssistEnabled ? "ON" : "OFF"), aimAssistEnabled);
-		if (expandedModule == 20) {
-			String bind = waitingForFreecamBind ? "Press a key..." : Freecam.getBindKey() == GLFW.GLFW_KEY_UNKNOWN
-				? "None" : InputConstants.Type.KEYSYM.getOrCreate(Freecam.getBindKey()).getDisplayName().getString();
-			int bindY = contentTop + 81;
-			graphics.fill(contentX, bindY, contentRight, bindY + 22, waitingForFreecamBind ? 0xAA245A50 : 0xAA303640);
-			graphics.drawString(font, "Bind (key)", contentX + 8, bindY + 7, 0xFFEAF7FC, false);
-			graphics.drawString(font, bind, contentRight - font.width(bind) - 8, bindY + 7, 0xFF9AA3AF, false);
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 111, "Speed",
-				String.format(Locale.ROOT, "%.2f blocks/tick", Freecam.getSpeed()));
-			drawSlider(graphics, contentX, contentRight, freecamSliderY(), (Freecam.getSpeed() - 0.1) / 1.9);
-		} else if (expandedModule == 21) {
-			String bind = waitingForSkillBind ? "Press a key or mouse button..." : skillBindName(SkillBind.getBindCode());
-			int bindY = contentTop + 81;
-			graphics.fill(contentX, bindY, contentRight, bindY + 22, waitingForSkillBind ? 0xAA245A50 : 0xAA303640);
-			graphics.drawString(font, "Bind (key)", contentX + 8, bindY + 7, 0xFFEAF7FC, false);
-			graphics.drawString(font, trimToWidth(bind, contentRight - contentX - 16),
-				contentRight - font.width(trimToWidth(bind, contentRight - contentX - 16)) - 8, bindY + 7, 0xFF9AA3AF, false);
-		} else if (expandedModule == 22) {
-			String bind = waitingForAimBind ? "Press a key or mouse button..." : aimBindName(AimAssist.getBindCode());
-			int bindY = contentTop + 108;
-			graphics.fill(contentX, bindY, contentRight, bindY + 22, waitingForAimBind ? 0xAA245A50 : 0xAA303640);
-			graphics.drawString(font, "Aim key", contentX + 8, bindY + 7, 0xFFEAF7FC, false);
-			String shownBind = trimToWidth(bind, contentRight - contentX - 16);
-			graphics.drawString(font, shownBind, contentRight - font.width(shownBind) - 8,
-				bindY + 7, 0xFF9AA3AF, false);
-			drawSettingLabel(graphics, contentX, contentRight, contentTop + 138, "FOV",
-				AimAssist.getFov() + "°");
-			drawSlider(graphics, contentX, contentRight, aimFovSliderY(), AimAssist.getFovProgress());
-			drawModuleRow(graphics, contentX, contentRight, contentTop + 174,
-				"FOV Circle: " + (AimAssist.isFovCircleEnabled() ? "ON" : "OFF"), AimAssist.isFovCircleEnabled());
+		for (int index = 0; index < 5; index++) {
+			int module = assistanceModuleId(index);
+			int y = assistanceRowY(index, contentTop);
+			boolean enabled = assistanceModuleEnabled(index);
+			drawModuleRow(graphics, contentX, contentRight, y - scrollOffset,
+				assistanceModuleName(index) + ": " + (enabled ? "ON" : "OFF"), enabled);
+			if (expandedModule == module) renderAssistanceSettings(graphics, module, contentX, contentRight, y - scrollOffset);
 		}
 	}
+
+	private void renderAssistanceSettings(GuiGraphics graphics, int module, int left, int right, int y) {
+		if (module == 20) {
+			drawBindRow(graphics, left, right, y + 27, "Bind", waitingForFreecamBind,
+				Freecam.getBindKey() == GLFW.GLFW_KEY_UNKNOWN ? "None" : keyName(Freecam.getBindKey()));
+			drawSettingLabel(graphics, left, right, y + 56, "Speed", String.format(Locale.ROOT, "%.2f blocks/tick", Freecam.getSpeed()));
+			drawSlider(graphics, left, right, y + 72, (Freecam.getSpeed() - 0.1) / 1.9);
+		} else if (module == 21) {
+			drawBindRow(graphics, left, right, y + 27, "Bind", waitingForSkillBind, skillBindName(SkillBind.getBindCode()));
+		} else if (module == 22) {
+			drawBindRow(graphics, left, right, y + 27, "Aim key", waitingForAimBind, aimBindName(AimAssist.getBindCode()));
+			drawSettingLabel(graphics, left, right, y + 56, "FOV", AimAssist.getFov() + "°");
+			drawSlider(graphics, left, right, y + 72, AimAssist.getFovProgress());
+			drawModuleRow(graphics, left, right, y + 92,
+				"FOV Circle: " + (AimAssist.isFovCircleEnabled() ? "ON" : "OFF"), AimAssist.isFovCircleEnabled());
+		} else if (module == 23) {
+			int modeY = y + 27;
+			graphics.fill(left, modeY, right, modeY + 22, 0xAA303640);
+			graphics.drawString(font, "Mode", left + 8, modeY + 7, 0xFFEAF7FC, false);
+			String mode = Triggerbot.isOnKeyMode() ? "OnKey  ‹ ›" : "Always  ‹ ›";
+			graphics.drawString(font, mode, right - font.width(mode) - 8, modeY + 7, 0xFF9FFFD7, false);
+			drawSettingLabel(graphics, left, right, y + 56, "Delay", Triggerbot.getDelayMs() + " ms");
+			drawSlider(graphics, left, right, y + 72, Triggerbot.getDelayProgress());
+			drawModuleRow(graphics, left, right, y + 92,
+				"Through Walls: " + (Triggerbot.isThroughWalls() ? "ON" : "OFF"), Triggerbot.isThroughWalls());
+			if (Triggerbot.isOnKeyMode()) {
+				String bind = waitingForTriggerbotBind ? "Press a key or mouse button..." : triggerbotBindName();
+				drawBindRow(graphics, left, right, y + 119, "Activation key", waitingForTriggerbotBind, bind);
+			}
+		}
+	}
+
+	private void drawBindRow(GuiGraphics graphics, int left, int right, int y, String label, boolean waiting, String bind) {
+		graphics.fill(left, y, right, y + 22, waiting ? 0xAA245A50 : 0xAA303640);
+		graphics.drawString(font, label, left + 8, y + 7, 0xFFEAF7FC, false);
+		String shown = trimToWidth(bind, right - left - 16);
+		graphics.drawString(font, shown, right - font.width(shown) - 8, y + 7, 0xFF9AA3AF, false);
+	}
+
+	private String keyName(int code) {
+		return code == GLFW.GLFW_KEY_UNKNOWN ? "None" : InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+	}
+
+	private String triggerbotBindName() {
+		int code = Triggerbot.getActivationBind();
+		if (code == GLFW.GLFW_KEY_UNKNOWN) return "None";
+		if (Triggerbot.isMouseBind(code)) return "Mouse " + (Triggerbot.getMouseButton(code) + 1);
+		return keyName(code);
+	}
+
+	private int assistanceModuleId(int index) { return index == 0 ? 19 : 19 + index; }
+	private int assistanceRowY(int index, int top) {
+		int y = top;
+		for (int previous = 0; previous < index; previous++) {
+			int module = assistanceModuleId(previous);
+			y += 27;
+			if (expandedModule == module) y += assistanceExpansionHeight(module);
+		}
+		return y;
+	}
+	private int assistanceExpansionHeight(int module) {
+		return switch (module) {
+			case 20 -> 82; case 21 -> 55; case 22 -> 120;
+			case 23 -> Triggerbot.isOnKeyMode() ? 148 : 120; default -> 0;
+		};
+	}
+	private int categoryContentHeight() {
+		if (selectedCategory == Category.ASSISTANCE) {
+			int height = 5 * 27;
+			if (expandedModule >= 20 && expandedModule <= 23) height += assistanceExpansionHeight(expandedModule);
+			return height;
+		}
+		if (selectedCategory == Category.VISUALS) {
+			int height = 7 * 27;
+			if (expandedModule >= 0 && expandedModule <= 6) height += visualExpansionHeight(expandedModule);
+			return height;
+		}
+		return 0;
+	}
+	private boolean assistanceModuleEnabled(int index) {
+		return switch (index) {
+			case 0 -> AutoRevive.isEnabled(); case 1 -> Freecam.isEnabled(); case 2 -> SkillBind.isEnabled();
+			case 3 -> AimAssist.isEnabled(); case 4 -> Triggerbot.isEnabled(); default -> false;
+		};
+	}
+	private String assistanceModuleName(int index) {
+		return switch (index) {
+			case 0 -> "Auto Revive"; case 1 -> "Freecam"; case 2 -> "Skill Bind";
+			case 3 -> "Aim Assist"; case 4 -> "Triggerbot"; default -> "";
+		};
+	}
+	private void toggleAssistanceModule(int index) {
+		switch (index) {
+			case 0 -> AutoRevive.toggle(); case 1 -> Freecam.toggle(); case 2 -> SkillBind.toggle();
+			case 3 -> AimAssist.toggle(); case 4 -> Triggerbot.toggle(); default -> { }
+		}
+	}
+	private static boolean inside(int value, int start, int end) { return value >= start && value <= end; }
 
 	private String aimBindName(int code) {
 		if (AimAssist.isMouseBind(code)) return "Mouse " + (AimAssist.getMouseButton(code) + 1);
@@ -355,12 +452,6 @@ public class WinterScreen extends Screen {
 	private int contentLeft() { return panelX + SIDEBAR_WIDTH + 4 + CONTENT_PADDING; }
 	private int contentRight() { return panelX + panelWidth - 12; }
 	private int contentTop() { return panelY + HEADER_HEIGHT + 14; }
-	private int lifetimeSliderY() { return contentTop() + 178; }
-	private int thicknessSliderY() { return contentTop() + 213; }
-	private int rangeSliderY() { return contentTop() + 181; }
-	private int playerVisibilitySliderY() { return contentTop() + 207; }
-	private int freecamSliderY() { return contentTop() + 128; }
-	private int aimFovSliderY() { return contentTop() + 154; }
 
 	private void updateSlider(double mouseX) {
 		double progress = Math.max(0.0, Math.min(1.0, (mouseX - contentLeft()) / (contentRight() - contentLeft())));
@@ -383,6 +474,8 @@ public class WinterScreen extends Screen {
 			PlayerVisibility.setRenderDistance(4 + (int) Math.round(progress * 60.0));
 		} else if (activeSlider == 8) {
 			AimAssist.setFov(5 + (int) Math.round(progress * 55.0));
+		} else if (activeSlider == 9) {
+			Triggerbot.setDelayMs((int) Math.round(progress * 50.0) * 10);
 		}
 	}
 
@@ -421,6 +514,13 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (waitingForTriggerbotBind) {
+			if (event.button() >= GLFW.GLFW_MOUSE_BUTTON_1 && event.button() <= GLFW.GLFW_MOUSE_BUTTON_8) {
+				Triggerbot.setActivationBind(1000 + event.button());
+				waitingForTriggerbotBind = false;
+			}
+			return true;
+		}
 		if (waitingForAimBind) {
 			if (event.button() >= GLFW.GLFW_MOUSE_BUTTON_1 && event.button() <= GLFW.GLFW_MOUSE_BUTTON_8) {
 				AimAssist.setBindCode(1000 + event.button());
@@ -465,27 +565,30 @@ public class WinterScreen extends Screen {
 		int top = contentTop();
 		if (event.x() >= left && event.x() <= right) {
 			if (selectedCategory == Category.DEBUG) {
-				if (event.button() == 0 && event.y() >= top && event.y() <= top + 21) {
+				if (event.button() == 0 && inside((int) event.y(), debugRowY(0, top), debugRowY(0, top) + 21)) {
 					ShotDebugModule.toggle();
 					return true;
 				}
-				if (event.button() == 0 && event.y() >= top + 26 && event.y() <= top + 47) {
+				if (event.button() == 0 && inside((int) event.y(), debugRowY(1, top), debugRowY(1, top) + 21)) {
 					MobDebugModule.toggle();
 					return true;
 				}
-				if (event.y() >= top + 52 && event.y() <= top + 73) {
+				int areaY = debugRowY(2, top);
+				if (inside((int) event.y(), areaY, areaY + 21)) {
 					if (event.button() == 0) AreaSelector.toggle();
 					else if (event.button() == 1)
 						setExpandedModule(expandedModule == DEBUG_AREA_EXPANSION ? -1 : DEBUG_AREA_EXPANSION);
 					return true;
 				}
-				if (event.button() == 0 && event.y() >= top + 78 && event.y() <= top + 99) {
-					DrawPredict.toggle();
+				int saveY = areaY + 55;
+				if (expandedModule == DEBUG_AREA_EXPANSION && event.button() == 0
+					&& event.y() >= saveY && event.y() < saveY + 20) {
+					AreaSelector.saveCurrentArea();
 					return true;
 				}
-				if (expandedModule == DEBUG_AREA_EXPANSION && event.button() == 0
-					&& event.y() >= top + 134 && event.y() < top + 154) {
-					AreaSelector.saveCurrentArea();
+				int drawPredictY = debugRowY(3, top);
+				if (event.button() == 0 && inside((int) event.y(), drawPredictY, drawPredictY + 21)) {
+					DrawPredict.toggle();
 					return true;
 				}
 			} else if (selectedCategory == Category.HUD && event.button() == 0) {
@@ -494,109 +597,70 @@ public class WinterScreen extends Screen {
 					return true;
 				}
 			} else if (selectedCategory == Category.ASSISTANCE) {
-				if (event.button() == 0 && event.y() >= top && event.y() <= top + 21) {
-					AutoRevive.toggle();
-					return true;
-				}
-				if (event.y() >= top + 27 && event.y() <= top + 48) {
-					if (event.button() == 0) Freecam.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 20 ? -1 : 20);
-					return true;
-				}
-				if (event.y() >= top + 54 && event.y() <= top + 75) {
-					if (event.button() == 0) SkillBind.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 21 ? -1 : 21);
-					return true;
-				}
-				if (event.y() >= top + 81 && event.y() <= top + 102) {
-					if (event.button() == 0) AimAssist.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 22 ? -1 : 22);
-					return true;
-				}
-				if (expandedModule == 20 && event.button() == 0 && event.y() >= top + 81 && event.y() <= top + 103) {
-					waitingForFreecamBind = true;
-					return true;
-				}
-				if (expandedModule == 21 && event.button() == 0 && event.y() >= top + 81 && event.y() <= top + 103) {
-					waitingForSkillBind = true;
-					return true;
-				}
-				if (expandedModule == 22 && event.button() == 0 && event.y() >= top + 108 && event.y() <= top + 130) {
-					waitingForAimBind = true;
-					return true;
-				}
-				if (expandedModule == 22 && event.button() == 0 && event.y() >= top + 174 && event.y() <= top + 195) {
-					AimAssist.setFovCircleEnabled(!AimAssist.isFovCircleEnabled());
-					return true;
-				}
-				if (expandedModule == 22 && event.button() == 0 && Math.abs(event.y() - aimFovSliderY()) <= 6) {
-					activeSlider = 8;
-					updateSlider(event.x());
-					return true;
-				}
-				if (expandedModule == 20 && event.button() == 0 && Math.abs(event.y() - freecamSliderY()) <= 6) {
-					activeSlider = 6;
-					updateSlider(event.x());
-					return true;
-				}
-			} else if (selectedCategory == Category.VISUALS) {
-				if (event.y() >= top && event.y() <= top + 21) {
-					if (event.button() == 0) BulletTracers.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 0 ? -1 : 0);
-					return true;
-				}
-				if (event.y() >= top + 27 && event.y() <= top + 48) {
-					if (event.button() == 0) LuckyChestEsp.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 1 ? -1 : 1);
-					return true;
-				}
-				if (event.y() >= top + 54 && event.y() <= top + 75) {
-					if (event.button() == 0) MobEsp.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 2 ? -1 : 2);
-					return true;
-				}
-				if (event.y() >= top + 81 && event.y() <= top + 102) {
-					if (event.button() == 0) TeamEsp.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 3 ? -1 : 3);
-					return true;
-				}
-				if (event.y() >= top + 108 && event.y() <= top + 129) {
-					if (event.button() == 0) PowerupEsp.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 4 ? -1 : 4);
-					return true;
-				}
-				if (event.y() >= top + 135 && event.y() <= top + 156) {
-					if (event.button() == 0) BrokenWindowEsp.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 5 ? -1 : 5);
-					return true;
-				}
-				if (event.y() >= top + 162 && event.y() <= top + 183) {
-					if (event.button() == 0) PlayerVisibility.toggle();
-					else if (event.button() == 1) setExpandedModule(expandedModule == 6 ? -1 : 6);
-					return true;
-				}
-				if (expandedModule == 5 && event.button() == 0
-					&& event.y() >= top + 163 && event.y() <= top + 185) {
-					BrokenWindowEsp.cycleMap();
-					return true;
-				}
-				if (expandedModule == 2 && event.button() == 0
-					&& event.y() >= top + 201 && event.y() <= top + 222) {
-					MobEsp.setDamageBlinkEnabled(!MobEsp.isDamageBlinkEnabled());
-					return true;
-				}
-				if (expandedModule != -1 && event.button() == 0) {
-					if (expandedModule == 0 && Math.abs(event.y() - lifetimeSliderY()) <= 6) activeSlider = 0;
-					else if (expandedModule == 0 && Math.abs(event.y() - thicknessSliderY()) <= 6) activeSlider = 1;
-					else if (expandedModule == 1 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 2;
-					else if (expandedModule == 2 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 3;
-					else if (expandedModule == 3 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 4;
-					else if (expandedModule == 4 && Math.abs(event.y() - rangeSliderY()) <= 6) activeSlider = 5;
-					else if (expandedModule == 6 && Math.abs(event.y() - playerVisibilitySliderY()) <= 6) activeSlider = 7;
-					if (activeSlider != -1) {
-						updateSlider(event.x());
+				int y = (int) event.y() + scrollOffset;
+				for (int index = 0; index < 5; index++) {
+					int module = assistanceModuleId(index);
+					int rowY = assistanceRowY(index, top);
+					if (y >= rowY && y < rowY + 21) {
+						if (event.button() == 0) toggleAssistanceModule(index);
+						else if (event.button() == 1 && module != 19) setExpandedModule(expandedModule == module ? -1 : module);
 						return true;
 					}
+				}
+				if (event.button() == 0 && expandedModule == 20) {
+					int rowY = assistanceRowY(1, top);
+					if (inside(y, rowY + 27, rowY + 49)) { waitingForFreecamBind = true; return true; }
+					if (Math.abs(y - (rowY + 72)) <= 6) { activeSlider = 6; updateSlider(event.x()); return true; }
+				} else if (event.button() == 0 && expandedModule == 21) {
+					int rowY = assistanceRowY(2, top);
+					if (inside(y, rowY + 27, rowY + 49)) { waitingForSkillBind = true; return true; }
+				} else if (event.button() == 0 && expandedModule == 22) {
+					int rowY = assistanceRowY(3, top);
+					if (inside(y, rowY + 27, rowY + 49)) { waitingForAimBind = true; return true; }
+					if (inside(y, rowY + 92, rowY + 113)) {
+						AimAssist.setFovCircleEnabled(!AimAssist.isFovCircleEnabled()); return true;
+					}
+					if (Math.abs(y - (rowY + 72)) <= 6) { activeSlider = 8; updateSlider(event.x()); return true; }
+				} else if (event.button() == 0 && expandedModule == 23) {
+					int rowY = assistanceRowY(4, top);
+					if (inside(y, rowY + 27, rowY + 49)) {
+						Triggerbot.setOnKeyMode(!Triggerbot.isOnKeyMode());
+						return true;
+					}
+					if (Math.abs(y - (rowY + 72)) <= 6) { activeSlider = 9; updateSlider(event.x()); return true; }
+					if (inside(y, rowY + 92, rowY + 113)) {
+						Triggerbot.setThroughWalls(!Triggerbot.isThroughWalls()); return true;
+					}
+					if (Triggerbot.isOnKeyMode() && inside(y, rowY + 119, rowY + 141)) {
+						waitingForTriggerbotBind = true; return true;
+					}
+				}
+			} else if (selectedCategory == Category.VISUALS) {
+				int y = (int) event.y() + scrollOffset;
+				for (int module = 0; module < 7; module++) {
+					int rowY = visualRowY(module, top);
+					if (inside(y, rowY, rowY + 20)) {
+						if (event.button() == 0) toggleVisualModule(module);
+						else if (event.button() == 1) setExpandedModule(expandedModule == module ? -1 : module);
+						return true;
+					}
+				}
+				if (event.button() == 0 && expandedModule >= 0 && expandedModule <= 6) {
+					int rowY = visualRowY(expandedModule, top);
+					if (expandedModule == 5 && inside(y, rowY + 27, rowY + 49)) {
+						BrokenWindowEsp.cycleMap(); return true;
+					}
+					if (expandedModule == 2 && inside(y, rowY + 56, rowY + 77)) {
+						MobEsp.setDamageBlinkEnabled(!MobEsp.isDamageBlinkEnabled()); return true;
+					}
+					if (expandedModule == 0 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 0;
+					else if (expandedModule == 0 && Math.abs(y - (rowY + 73)) <= 6) activeSlider = 1;
+					else if (expandedModule == 1 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 2;
+					else if (expandedModule == 2 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 3;
+					else if (expandedModule == 3 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 4;
+					else if (expandedModule == 4 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 5;
+					else if (expandedModule == 6 && Math.abs(y - (rowY + 42)) <= 6) activeSlider = 7;
+					if (activeSlider != -1) { updateSlider(event.x()); return true; }
 				}
 			}
 		}
@@ -605,6 +669,18 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
+		if (waitingForTriggerbotBind) {
+			int key = event.key();
+			if (key == GLFW.GLFW_KEY_ESCAPE) waitingForTriggerbotBind = false;
+			else if (key == GLFW.GLFW_KEY_BACKSPACE || key == GLFW.GLFW_KEY_DELETE) {
+				Triggerbot.setActivationBind(GLFW.GLFW_KEY_UNKNOWN);
+				waitingForTriggerbotBind = false;
+			} else if (key != GLFW.GLFW_KEY_UNKNOWN) {
+				Triggerbot.setActivationBind(key);
+				waitingForTriggerbotBind = false;
+			}
+			return true;
+		}
 		if (waitingForAimBind) {
 			int key = event.key();
 			if (key == GLFW.GLFW_KEY_ESCAPE) waitingForAimBind = false;
@@ -669,6 +745,14 @@ public class WinterScreen extends Screen {
 		int contentRight = contentRight();
 		int contentTop = contentTop();
 		int contentBottom = panelY + panelHeight - 12;
+		if ((selectedCategory == Category.ASSISTANCE || selectedCategory == Category.VISUALS)
+			&& mouseX >= contentLeft && mouseX <= contentRight && mouseY >= contentTop && mouseY <= contentBottom) {
+			int visibleHeight = contentBottom - contentTop;
+			int maxScroll = Math.max(0, categoryContentHeight() - visibleHeight);
+			scrollOffset = Math.max(0, Math.min(maxScroll,
+				scrollOffset - (int) Math.signum(verticalAmount) * 18));
+			return true;
+		}
 		if (selectedCategory == Category.DEBUG && mouseX >= contentLeft && mouseX <= contentRight
 			&& mouseY >= contentTop && mouseY <= contentBottom) {
 			int eventsTop = debugEventsTop();
