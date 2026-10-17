@@ -124,20 +124,32 @@ public final class AimAssist {
 	private static Vec3 predictPosition(Mob mob, double distance, long now) {
 		Vec3 observedVelocity = getObservedVelocity(mob, now);
 		Vec3 packetVelocity = mob.getDeltaMovement();
-		Vec3 tickVelocity = new Vec3(mob.getX() - mob.xo, 0.0, mob.getZ() - mob.zo);
+		Vec3 tickVelocity = new Vec3(mob.getX() - mob.xo, mob.getY() - mob.yo, mob.getZ() - mob.zo);
 		Vec3 velocity;
-		if (tickVelocity.lengthSqr() > 0.0004) {
+		Vec3 horizontalTickVelocity = new Vec3(tickVelocity.x, 0.0, tickVelocity.z);
+		Vec3 horizontalObservedVelocity = new Vec3(observedVelocity.x, 0.0, observedVelocity.z);
+		if (horizontalTickVelocity.lengthSqr() > 0.0004) {
 			// Position deltas are available even when the server does not send a useful motion vector.
-			velocity = tickVelocity;
-			if (observedVelocity.lengthSqr() > 0.0004)
-				velocity = velocity.scale(0.7).add(observedVelocity.scale(0.3));
-		} else if (observedVelocity.lengthSqr() > 0.0004) {
-			velocity = observedVelocity;
+			velocity = horizontalTickVelocity;
+			if (horizontalObservedVelocity.lengthSqr() > 0.0004)
+				velocity = velocity.scale(0.7).add(horizontalObservedVelocity.scale(0.3));
+		} else if (horizontalObservedVelocity.lengthSqr() > 0.0004) {
+			velocity = horizontalObservedVelocity;
 		} else {
 			velocity = new Vec3(packetVelocity.x, 0.0, packetVelocity.z);
 		}
 
+		// Vertical motion changes faster than horizontal motion. Prefer the latest entity-tick
+		// delta, then the live motion vector while airborne; grounded mobs should not retain
+		// an old jump/fall estimate after landing.
+		double verticalVelocity = Math.abs(tickVelocity.y) > 0.025
+			? tickVelocity.y
+			: mob.onGround() ? 0.0
+			: Math.abs(packetVelocity.y) > 0.025 ? packetVelocity.y : observedVelocity.y;
+		verticalVelocity = Math.max(-0.65, Math.min(0.65, verticalVelocity));
+
 		Path path = mob.getNavigation().getPath();
+		double pathVerticalLead = 0.0;
 		if (path != null && !path.isDone()) {
 			Vec3 nextPoint = path.getNextEntityPos(mob).subtract(mob.position());
 			Vec3 pathDirection = new Vec3(nextPoint.x, 0.0, nextPoint.z);
@@ -148,12 +160,19 @@ public final class AimAssist {
 					speed = Math.max(0.04, Math.min(0.32, mob.getSpeed()));
 					velocity = pathDirection.scale(speed);
 				}
+				// Navigation points can reveal a step/slab climb before the mob's Y position
+				// changes. Use only a small fraction of that height as anticipation.
+				if (Math.abs(verticalVelocity) < 0.025 && Math.abs(nextPoint.y) > 0.15)
+					pathVerticalLead = Math.max(-0.45, Math.min(0.45, nextPoint.y * 0.45));
 			}
 		}
 
 		// Include the smooth-turn response delay plus a small distance-based hit-registration delay.
 		double leadTicks = Math.min(10.0, 3.5 + distance * 0.09);
-		Vec3 displacement = velocity.scale(leadTicks);
+		double verticalDisplacement = mob.onGround()
+			? Math.max(-0.45, Math.min(0.45, tickVelocity.y * 0.8)) + pathVerticalLead
+			: Math.max(-1.5, Math.min(1.5, verticalVelocity * leadTicks));
+		Vec3 displacement = velocity.scale(leadTicks).add(0.0, verticalDisplacement, 0.0);
 		// Clamp only extreme network spikes; ordinary fast movement keeps its full lead.
 		double maxLead = Math.min(5.0, 0.75 + distance * 0.11);
 		if (displacement.length() > maxLead) displacement = displacement.normalize().scale(maxLead);
@@ -174,12 +193,21 @@ public final class AimAssist {
 
 		double seconds = elapsed / 1_000_000_000.0;
 		Vec3 delta = position.subtract(sample.position);
-		Vec3 measured = new Vec3(delta.x / seconds * 0.05, 0.0, delta.z / seconds * 0.05);
-		double speed = measured.length();
-		if (speed > 0.75) measured = measured.scale(0.75 / speed);
+		Vec3 measured = new Vec3(delta.x / seconds * 0.05, delta.y / seconds * 0.05, delta.z / seconds * 0.05);
+		double horizontalSpeed = Math.sqrt(measured.x * measured.x + measured.z * measured.z);
+		if (horizontalSpeed > 0.75) {
+			double scale = 0.75 / horizontalSpeed;
+			measured = new Vec3(measured.x * scale, measured.y, measured.z * scale);
+		}
+		measured = new Vec3(measured.x, Math.max(-0.65, Math.min(0.65, measured.y)), measured.z);
 		sample.position = position;
 		sample.sampledAt = now;
-		sample.velocity = sample.velocity.scale(0.35).add(measured.scale(0.65));
+		// Keep horizontal smoothing as before, but let vertical velocity react quickly to
+		// jumps and landings so stale height predictions disappear promptly.
+		sample.velocity = new Vec3(
+			sample.velocity.x * 0.35 + measured.x * 0.65,
+			sample.velocity.y * 0.15 + measured.y * 0.85,
+			sample.velocity.z * 0.35 + measured.z * 0.65);
 		return sample.velocity;
 	}
 
