@@ -9,6 +9,7 @@ import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.assistance.AimAssist;
 import dev.luxnet.winter.client.assistance.Triggerbot;
 import dev.luxnet.winter.client.assistance.RightClicker;
+import dev.luxnet.winter.client.assistance.QuickSwap;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.BrokenWindowEsp;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -102,6 +103,12 @@ public final class WinterConfig {
 			Triggerbot.setDelayMs(intValue("assistance.triggerbot.delayMs", 0));
 			RightClicker.loadCpsRange(intValue("assistance.rightClicker.minCps", 8), intValue("assistance.rightClicker.maxCps", 12));
 			RightClicker.setEnabled(booleanValue("assistance.rightClicker", false));
+			QuickSwap.loadSettings(intValue("assistance.quickSwap.delayMs", 250),
+				intValue("assistance.quickSwap.jitterMs", 0),
+				VALUES.getProperty("assistance.quickSwap.slotMode", "SLOTS_2_3"),
+				VALUES.getProperty("assistance.quickSwap.activationMode", "HOLD"),
+				intValue("assistance.quickSwap.bind", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN));
+			QuickSwap.setEnabled(booleanValue("assistance.quickSwap", false));
 			Freecam.setBindKey(intValue("assistance.freecam.bind", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN));
 			double freecamSpeed = doubleValue("assistance.freecam.speed", 0.80);
 			if (Math.abs(freecamSpeed - 0.45) < 0.000001) freecamSpeed = 0.80;
@@ -182,6 +189,12 @@ public final class WinterConfig {
 		VALUES.setProperty("assistance.rightClicker", Boolean.toString(RightClicker.isEnabled()));
 		VALUES.setProperty("assistance.rightClicker.minCps", Integer.toString(RightClicker.getMinimumCps()));
 		VALUES.setProperty("assistance.rightClicker.maxCps", Integer.toString(RightClicker.getMaximumCps()));
+		VALUES.setProperty("assistance.quickSwap", Boolean.toString(QuickSwap.isEnabled()));
+		VALUES.setProperty("assistance.quickSwap.delayMs", Integer.toString(QuickSwap.getDelayMs()));
+		VALUES.setProperty("assistance.quickSwap.jitterMs", Integer.toString(QuickSwap.getJitterMs()));
+		VALUES.setProperty("assistance.quickSwap.slotMode", QuickSwap.getSlotMode().name());
+		VALUES.setProperty("assistance.quickSwap.activationMode", QuickSwap.getActivationMode().name());
+		VALUES.setProperty("assistance.quickSwap.bind", Integer.toString(QuickSwap.getBindCode()));
 		VALUES.setProperty("assistance.aimAssist.bind", Integer.toString(AimAssist.getBindCode()));
 		VALUES.setProperty("assistance.aimAssist.fov", Integer.toString(AimAssist.getFov()));
 		VALUES.setProperty("assistance.aimAssist.fovCircle", Boolean.toString(AimAssist.isFovCircleEnabled()));

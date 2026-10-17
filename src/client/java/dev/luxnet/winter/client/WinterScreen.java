@@ -9,6 +9,7 @@ import dev.luxnet.winter.client.assistance.Triggerbot;
 import dev.luxnet.winter.client.assistance.Freecam;
 import dev.luxnet.winter.client.assistance.SkillBind;
 import dev.luxnet.winter.client.assistance.RightClicker;
+import dev.luxnet.winter.client.assistance.QuickSwap;
 import dev.luxnet.winter.client.debug.ShotDebugModule;
 import dev.luxnet.winter.client.visuals.BulletTracers;
 import dev.luxnet.winter.client.visuals.LuckyChestEsp;
@@ -55,6 +56,7 @@ public class WinterScreen extends Screen {
 	private boolean waitingForSkillBind;
 	private boolean waitingForAimBind;
 	private boolean waitingForTriggerbotBind;
+	private boolean waitingForQuickSwapBind;
 	private Category selectedCategory;
 
 	private enum Category { ASSISTANCE, VISUALS, HUD, DEBUG }
@@ -68,7 +70,7 @@ public class WinterScreen extends Screen {
 	public static void loadMenuState(String categoryName, int module) {
 		try { savedCategory = Category.valueOf(categoryName); }
 		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
-		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module >= 19 && module <= 24 || module >= 0 && module <= 8
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module >= 19 && module <= 25 || module >= 0 && module <= 8
 			? module : -1;
 	}
 
@@ -351,7 +353,7 @@ public class WinterScreen extends Screen {
 	}
 
 	private void renderAssistance(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
-		for (int index = 0; index < 6; index++) {
+		for (int index = 0; index < 7; index++) {
 			int module = assistanceModuleId(index);
 			int y = assistanceRowY(index, contentTop);
 			boolean enabled = assistanceModuleEnabled(index);
@@ -394,6 +396,23 @@ public class WinterScreen extends Screen {
 				RightClicker.getMinimumCps() + " - " + RightClicker.getMaximumCps());
 			drawRangeSlider(graphics, left, right, y + 47,
 				cpsProgress(RightClicker.getMinimumCps()), cpsProgress(RightClicker.getMaximumCps()));
+		} else if (module == 25) {
+			drawBindRow(graphics, left, right, y + 27, "Bind", waitingForQuickSwapBind,
+				waitingForQuickSwapBind ? "Press a key or mouse button..." : quickSwapBindName());
+			int modeY = y + 53;
+			graphics.fill(left, modeY, right, modeY + 22, 0xAA303640);
+			graphics.drawString(font, "Activation", left + 8, modeY + 7, 0xFFEAF7FC, false);
+			String activation = QuickSwap.getActivationMode().name() + "  ‹ ›";
+			graphics.drawString(font, activation, right - font.width(activation) - 8, modeY + 7, 0xFF9FFFD7, false);
+			int slotsY = y + 79;
+			graphics.fill(left, slotsY, right, slotsY + 22, 0xAA303640);
+			graphics.drawString(font, "Slots", left + 8, slotsY + 7, 0xFFEAF7FC, false);
+			String slots = QuickSwap.getSlotMode() == QuickSwap.SlotMode.SLOTS_2_3 ? "2-3  ‹ ›" : "2-3-4  ‹ ›";
+			graphics.drawString(font, slots, right - font.width(slots) - 8, slotsY + 7, 0xFF9FFFD7, false);
+			drawSettingLabel(graphics, left, right, y + 106, "Delay", QuickSwap.getDelayMs() + " ms");
+			drawSlider(graphics, left, right, y + 122, QuickSwap.getDelayMs() / 1000.0);
+			drawSettingLabel(graphics, left, right, y + 140, "Jitter", QuickSwap.getJitterMs() + " ms");
+			drawSlider(graphics, left, right, y + 156, QuickSwap.getJitterMs() / 10.0);
 		}
 	}
 
@@ -428,13 +447,13 @@ public class WinterScreen extends Screen {
 	private int assistanceExpansionHeight(int module) {
 		return switch (module) {
 			case 20 -> 82; case 21 -> 55; case 22 -> 120;
-			case 23 -> Triggerbot.isOnKeyMode() ? 148 : 120; case 24 -> 67; default -> 0;
+			case 23 -> Triggerbot.isOnKeyMode() ? 148 : 120; case 24 -> 67; case 25 -> 171; default -> 0;
 		};
 	}
 	private int categoryContentHeight() {
 		if (selectedCategory == Category.ASSISTANCE) {
-			int height = 6 * 27;
-			if (expandedModule >= 20 && expandedModule <= 24) height += assistanceExpansionHeight(expandedModule);
+			int height = 7 * 27;
+			if (expandedModule >= 20 && expandedModule <= 25) height += assistanceExpansionHeight(expandedModule);
 			return height;
 		}
 		if (selectedCategory == Category.VISUALS) {
@@ -447,19 +466,22 @@ public class WinterScreen extends Screen {
 	private boolean assistanceModuleEnabled(int index) {
 		return switch (index) {
 			case 0 -> AutoRevive.isEnabled(); case 1 -> Freecam.isEnabled(); case 2 -> SkillBind.isEnabled();
-			case 3 -> AimAssist.isEnabled(); case 4 -> Triggerbot.isEnabled(); case 5 -> RightClicker.isEnabled(); default -> false;
+			case 3 -> AimAssist.isEnabled(); case 4 -> Triggerbot.isEnabled(); case 5 -> RightClicker.isEnabled();
+			case 6 -> QuickSwap.isEnabled(); default -> false;
 		};
 	}
 	private String assistanceModuleName(int index) {
 		return switch (index) {
 			case 0 -> "Auto Revive"; case 1 -> "Freecam"; case 2 -> "Skill Bind";
-			case 3 -> "Aim Assist"; case 4 -> "Triggerbot"; case 5 -> "Right Clicker"; default -> "";
+			case 3 -> "Aim Assist"; case 4 -> "Triggerbot"; case 5 -> "Right Clicker";
+			case 6 -> "Quick Swap"; default -> "";
 		};
 	}
 	private void toggleAssistanceModule(int index) {
 		switch (index) {
 			case 0 -> AutoRevive.toggle(); case 1 -> Freecam.toggle(); case 2 -> SkillBind.toggle();
-			case 3 -> AimAssist.toggle(); case 4 -> Triggerbot.toggle(); case 5 -> RightClicker.toggle(); default -> { }
+			case 3 -> AimAssist.toggle(); case 4 -> Triggerbot.toggle(); case 5 -> RightClicker.toggle();
+			case 6 -> QuickSwap.toggle(); default -> { }
 		}
 	}
 	private static boolean inside(int value, int start, int end) { return value >= start && value <= end; }
@@ -474,6 +496,13 @@ public class WinterScreen extends Screen {
 		if (code == GLFW.GLFW_KEY_UNKNOWN) return "None";
 		if (SkillBind.isMouseBind(code)) return "Mouse " + (SkillBind.getMouseButton(code) + 1);
 		return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+	}
+
+	private String quickSwapBindName() {
+		int code = QuickSwap.getBindCode();
+		if (code == GLFW.GLFW_KEY_UNKNOWN) return "None";
+		if (QuickSwap.isMouseBind(code)) return "Mouse " + (QuickSwap.getMouseButton(code) + 1);
+		return keyName(code);
 	}
 
 	private void drawSettingLabel(GuiGraphics graphics, int left, int right, int y, String name, String value) {
@@ -542,6 +571,10 @@ public class WinterScreen extends Screen {
 			RightClicker.setMinimumCps(1 + (int) Math.round(progress * 19.0));
 		} else if (activeSlider == 13) {
 			RightClicker.setMaximumCps(1 + (int) Math.round(progress * 19.0));
+		} else if (activeSlider == 14) {
+			QuickSwap.setDelayMs((int) Math.round(progress * 1000.0));
+		} else if (activeSlider == 15) {
+			QuickSwap.setJitterMs((int) Math.round(progress * 10.0));
 		}
 	}
 
@@ -580,6 +613,13 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (waitingForQuickSwapBind) {
+			if (event.button() >= GLFW.GLFW_MOUSE_BUTTON_1 && event.button() <= GLFW.GLFW_MOUSE_BUTTON_8) {
+				QuickSwap.setBindCode(1000 + event.button());
+				waitingForQuickSwapBind = false;
+			}
+			return true;
+		}
 		if (waitingForTriggerbotBind) {
 			if (event.button() >= GLFW.GLFW_MOUSE_BUTTON_1 && event.button() <= GLFW.GLFW_MOUSE_BUTTON_8) {
 				Triggerbot.setActivationBind(1000 + event.button());
@@ -697,7 +737,7 @@ public class WinterScreen extends Screen {
 				}
 			} else if (selectedCategory == Category.ASSISTANCE) {
 				int y = (int) event.y() + scrollOffset;
-				for (int index = 0; index < 6; index++) {
+				for (int index = 0; index < 7; index++) {
 					int module = assistanceModuleId(index);
 					int rowY = assistanceRowY(index, top);
 					if (y >= rowY && y < rowY + 21) {
@@ -739,6 +779,30 @@ public class WinterScreen extends Screen {
 						int minX = contentLeft() + (int) Math.round((contentRight() - contentLeft()) * cpsProgress(RightClicker.getMinimumCps()));
 						int maxX = contentLeft() + (int) Math.round((contentRight() - contentLeft()) * cpsProgress(RightClicker.getMaximumCps()));
 						activeSlider = Math.abs(event.x() - minX) <= Math.abs(event.x() - maxX) ? 12 : 13;
+						updateSlider(event.x());
+						return true;
+					}
+				} else if (event.button() == 0 && expandedModule == 25) {
+					int rowY = assistanceRowY(6, top);
+					if (inside(y, rowY + 27, rowY + 49)) {
+						waitingForQuickSwapBind = true;
+						return true;
+					}
+					if (inside(y, rowY + 53, rowY + 75)) {
+						QuickSwap.cycleActivationMode();
+						return true;
+					}
+					if (inside(y, rowY + 79, rowY + 101)) {
+						QuickSwap.cycleSlotMode();
+						return true;
+					}
+					if (Math.abs(y - (rowY + 122)) <= 6) {
+						activeSlider = 14;
+						updateSlider(event.x());
+						return true;
+					}
+					if (Math.abs(y - (rowY + 156)) <= 6) {
+						activeSlider = 15;
 						updateSlider(event.x());
 						return true;
 					}
@@ -792,6 +856,18 @@ public class WinterScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
+		if (waitingForQuickSwapBind) {
+			int key = event.key();
+			if (key == GLFW.GLFW_KEY_ESCAPE) waitingForQuickSwapBind = false;
+			else if (key == GLFW.GLFW_KEY_BACKSPACE || key == GLFW.GLFW_KEY_DELETE) {
+				QuickSwap.setBindCode(GLFW.GLFW_KEY_UNKNOWN);
+				waitingForQuickSwapBind = false;
+			} else if (key != GLFW.GLFW_KEY_UNKNOWN) {
+				QuickSwap.setBindCode(key);
+				waitingForQuickSwapBind = false;
+			}
+			return true;
+		}
 		if (waitingForTriggerbotBind) {
 			int key = event.key();
 			if (key == GLFW.GLFW_KEY_ESCAPE) waitingForTriggerbotBind = false;
