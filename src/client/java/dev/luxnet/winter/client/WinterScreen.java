@@ -70,7 +70,7 @@ public class WinterScreen extends Screen {
 	public static void loadMenuState(String categoryName, int module) {
 		try { savedCategory = Category.valueOf(categoryName); }
 		catch (RuntimeException ignored) { savedCategory = Category.ASSISTANCE; }
-		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module >= 19 && module <= 25 || module >= 0 && module <= 8
+		savedExpandedModule = module == DEBUG_AREA_EXPANSION || module == 30 || module == 31 || module >= 19 && module <= 25 || module >= 0 && module <= 8
 			? module : -1;
 	}
 
@@ -332,9 +332,9 @@ public class WinterScreen extends Screen {
 
 	private void renderHud(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
 		boolean enabled = WinterHud.isWatermarkEnabled();
-		drawModuleRow(graphics, contentX, contentRight, contentTop,
+		drawModuleRow(graphics, contentX, contentRight, contentTop - scrollOffset,
 			"Watermark: " + (enabled ? "ON" : "OFF"), enabled);
-		int trackerY = contentTop + 26;
+		int trackerY = contentTop + 26 - scrollOffset;
 		drawModuleRow(graphics, contentX, contentRight, trackerY,
 			"Powerup Tracker: " + (PowerupTracker.isEnabled() ? "ON" : "OFF"), PowerupTracker.isEnabled());
 		if (expandedModule == 30) {
@@ -349,7 +349,18 @@ public class WinterScreen extends Screen {
 		int bossbarY = scoreboardY + 26;
 		drawModuleRow(graphics, contentX, contentRight, bossbarY,
 			"Bossbar: " + (WinterHud.isBossbarEnabled() ? "ON" : "OFF"), WinterHud.isBossbarEnabled());
-		drawModuleRow(graphics, contentX, contentRight, bossbarY + 26, "HUD Editor", false);
+		int warningY = bossbarY + 26;
+		drawModuleRow(graphics, contentX, contentRight, warningY,
+			"BossWarning: " + (BossWarning.isEnabled() ? "ON" : "OFF"), BossWarning.isEnabled());
+		if (expandedModule == 31) {
+			int mapY = warningY + 27;
+			graphics.fill(contentX, mapY, contentRight, mapY + 22, 0xAA303640);
+			graphics.drawString(font, "Map", contentX + 8, mapY + 7, 0xFFEAF7FC, false);
+			String map = "‹  " + BossWarning.getMapName() + "  ›";
+			graphics.drawString(font, map, contentRight - font.width(map) - 8, mapY + 7, 0xFF9FFFD7, false);
+		}
+		int editorY = warningY + 26 + (expandedModule == 31 ? 26 : 0);
+		drawModuleRow(graphics, contentX, contentRight, editorY, "HUD Editor", false);
 	}
 
 	private void renderAssistance(GuiGraphics graphics, int contentX, int contentTop, int contentRight) {
@@ -460,6 +471,9 @@ public class WinterScreen extends Screen {
 			int height = 9 * 27;
 			if (expandedModule >= 0 && expandedModule <= 8) height += visualExpansionHeight(expandedModule);
 			return height;
+		}
+		if (selectedCategory == Category.HUD) {
+			return 6 * 27 + (expandedModule == 30 ? 55 : expandedModule == 31 ? 26 : 0);
 		}
 		return 0;
 	}
@@ -698,11 +712,11 @@ public class WinterScreen extends Screen {
 					return true;
 				}
 			} else if (selectedCategory == Category.HUD && event.button() == 0) {
-				if (event.y() >= top && event.y() <= top + 21) {
+				if (inside((int) event.y(), top - scrollOffset, top - scrollOffset + 21)) {
 					WinterHud.toggleWatermark();
 					return true;
 				}
-				int trackerY = top + 26;
+				int trackerY = top + 26 - scrollOffset;
 				if (inside((int) event.y(), trackerY, trackerY + 21)) {
 					PowerupTracker.setEnabled(!PowerupTracker.isEnabled());
 					return true;
@@ -725,14 +739,30 @@ public class WinterScreen extends Screen {
 					WinterHud.toggleBossbar();
 					return true;
 				}
-				if (inside((int) event.y(), bossbarY + 26, bossbarY + 47)) {
+				int warningY = bossbarY + 26;
+				if (inside((int) event.y(), warningY, warningY + 21)) {
+					BossWarning.toggle();
+					return true;
+				}
+				if (expandedModule == 31 && inside((int) event.y(), warningY + 27, warningY + 49)) {
+					BossWarning.cycleMap(event.x() < (contentLeft() + contentRight()) / 2.0 ? -1 : 1);
+					return true;
+				}
+				int editorY = warningY + 26 + (expandedModule == 31 ? 26 : 0);
+				if (inside((int) event.y(), editorY, editorY + 21)) {
 					this.minecraft.setScreen(new HudEditorScreen(this));
 					return true;
 				}
 			} else if (selectedCategory == Category.HUD && event.button() == 1) {
-				int trackerY = top + 26;
+				int trackerY = top + 26 - scrollOffset;
 				if (inside((int) event.y(), trackerY, trackerY + 21)) {
 					setExpandedModule(expandedModule == 30 ? -1 : 30);
+					return true;
+				}
+				int scoreboardY = trackerY + 27 + (expandedModule == 30 ? 55 : 0);
+				int warningY = scoreboardY + 52;
+				if (inside((int) event.y(), warningY, warningY + 21)) {
+					setExpandedModule(expandedModule == 31 ? -1 : 31);
 					return true;
 				}
 			} else if (selectedCategory == Category.ASSISTANCE) {
@@ -944,7 +974,7 @@ public class WinterScreen extends Screen {
 		int contentRight = contentRight();
 		int contentTop = contentTop();
 		int contentBottom = panelY + panelHeight - 12;
-		if ((selectedCategory == Category.ASSISTANCE || selectedCategory == Category.VISUALS)
+		if ((selectedCategory == Category.ASSISTANCE || selectedCategory == Category.VISUALS || selectedCategory == Category.HUD)
 			&& mouseX >= contentLeft && mouseX <= contentRight && mouseY >= contentTop && mouseY <= contentBottom) {
 			int visibleHeight = contentBottom - contentTop;
 			int maxScroll = Math.max(0, categoryContentHeight() - visibleHeight);

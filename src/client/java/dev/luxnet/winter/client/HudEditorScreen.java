@@ -31,7 +31,7 @@ public final class HudEditorScreen extends Screen {
 		graphics.drawString(font, "HUD Editor", 22, 20, 0xFFEAF7FC, false);
 		String help = "Drag to move  ·  drag corner to resize  ·  Esc to close";
 		graphics.drawString(font, help, width - font.width(help) - 22, 20, 0xFF9AA3AF, false);
-		for (int element = WinterHud.WATERMARK; element <= WinterHud.BOSSBAR; element++) {
+		for (int element = WinterHud.WATERMARK; element <= WinterHud.BOSS_WARNING; element++) {
 			int x = WinterHud.getScreenX(element, width, font);
 			int y = WinterHud.getEditorScreenY(element, height, font);
 			int boxWidth = WinterHud.getWidth(element, font);
@@ -52,7 +52,7 @@ public final class HudEditorScreen extends Screen {
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		if (event.button() != 0) return super.mouseClicked(event, doubleClick);
-		for (int element = WinterHud.BOSSBAR; element >= WinterHud.WATERMARK; element--) {
+		for (int element = WinterHud.BOSS_WARNING; element >= WinterHud.WATERMARK; element--) {
 			int x = WinterHud.getScreenX(element, width, font);
 			int y = WinterHud.getEditorScreenY(element, height, font);
 			int boxWidth = WinterHud.getWidth(element, font);

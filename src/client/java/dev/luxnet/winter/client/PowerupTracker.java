@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 public final class PowerupTracker {
 	private static final Pattern ROUND_EN = Pattern.compile("(?i)\\bround\\s*#?\\s*(\\d+)");
 	private static final Pattern ROUND_ZH = Pattern.compile("第\\s*(\\d+)\\s*回合");
+	private static final Pattern DIFFICULTY_PATTERN = Pattern.compile("(?i)\\bdifficulty\\s*:?\\s*(rip|hard|normal|安息|普通)");
 	private static final long DROP_LIFETIME_MS = 60_000L;
 	private static final PowerupType[] ORDER = { PowerupType.INSTA_KILL, PowerupType.MAX_AMMO,
 		PowerupType.SHOPPING_SPREE, PowerupType.DOUBLE_GOLD, PowerupType.BONUS_GOLD, PowerupType.CARPENTER };
@@ -52,6 +53,7 @@ public final class PowerupTracker {
 	private static boolean wasInGame;
 	private static Object currentLevel;
 	private static String currentMap = "";
+	private static String currentDifficulty = "normal";
 	private static int currentRound;
 	private static int scanTicks;
 
@@ -65,6 +67,8 @@ public final class PowerupTracker {
 	public static boolean isEnabled() { return enabled; }
 	public static boolean isTimerEnabled() { return timerEnabled; }
 	public static boolean isPredictorEnabled() { return predictorEnabled; }
+	public static int getCurrentRound() { return currentRound; }
+	public static String getCurrentDifficulty() { return currentDifficulty; }
 	/** Seconds until this dropped power-up's one-minute lifetime expires. */
 	public static int droppedSeconds(int entityId) {
 		long expiresAt = STAND_EXPIRIES.getOrDefault(entityId, System.currentTimeMillis() + DROP_LIFETIME_MS);
@@ -181,6 +185,7 @@ public final class PowerupTracker {
 			text.append(' ').append(row);
 			readRoundFromText(row);
 		}
+		currentDifficulty = identifyDifficulty(text.toString());
 		currentMap = identifyMap(plain(sidebar.getDisplayName().getString()) + " " + text);
 		if (currentMap.isEmpty() && minecraft.level.hasChunkAt(new BlockPos(0, 72, 12))) {
 			var state = minecraft.level.getBlockState(new BlockPos(0, 72, 12));
@@ -189,6 +194,16 @@ public final class PowerupTracker {
 			else if (state.is(BlockTags.WOOL)) currentMap = "dead_end";
 			else if (state.is(BlockTags.TERRACOTTA)) currentMap = "prison";
 		}
+	}
+
+	private static String identifyDifficulty(String text) {
+		String lower = text.toLowerCase(Locale.ROOT);
+		Matcher matcher = DIFFICULTY_PATTERN.matcher(lower);
+		if (!matcher.find()) return "normal";
+		String value = matcher.group(1);
+		if (value.equals("rip") || value.equals("安息")) return "rip";
+		if (value.equals("hard")) return "hard";
+		return "normal";
 	}
 
 	private static String identifyMap(String text) {
@@ -269,7 +284,7 @@ public final class PowerupTracker {
 
 	private static void clearRuntime() {
 		ACTIVE.clear(); DROPPED.clear(); OBSERVED_ROUND.clear(); STAND_TYPES.clear(); STAND_EXPIRIES.clear(); SEEN_STANDS.clear(); COMMITTED.clear();
-		currentRound = 0; currentMap = ""; scanTicks = 0;
+		currentRound = 0; currentMap = ""; currentDifficulty = "normal"; scanTicks = 0;
 	}
 
 	public record TimerRow(String label, int seconds, double progress) { }

@@ -26,14 +26,15 @@ public final class WinterHud {
 	public static final int POWERUP_PREDICTOR = 2;
 	public static final int SCOREBOARD = 3;
 	public static final int BOSSBAR = 4;
+	public static final int BOSS_WARNING = 5;
 	private static final float HUD_SCALE = 0.82F;
 	private static final double MIN_ELEMENT_SCALE = 0.5;
 	private static final double MAX_ELEMENT_SCALE = 2.0;
 	private static final int TIMER_ROW_HEIGHT = 19;
-	private static final double[] X = { 0.0, 0.0, 0.0, 1.0, 0.5 };
-	private static final double[] Y = { 0.0, 0.075, 0.155, 0.5, 0.02 };
-	private static final double[] ELEMENT_SCALE = { 1.0, 1.0, 1.0, 1.0, 1.0 };
-	private static final boolean[] POSITION_SET = { true, true, true, false, false };
+	private static final double[] X = { 0.0, 0.0, 0.0, 1.0, 0.5, 0.5 };
+	private static final double[] Y = { 0.0, 0.075, 0.155, 0.5, 0.02, 0.12 };
+	private static final double[] ELEMENT_SCALE = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
+	private static final boolean[] POSITION_SET = { true, true, true, false, false, true };
 	private static boolean watermarkEnabled = true;
 	private static boolean scoreboardEnabled = true;
 	private static boolean bossbarEnabled = true;
@@ -78,6 +79,10 @@ public final class WinterHud {
 		else if (element == POWERUP_TIMER) rawWidth = font.width("Shopping Spree") + font.width("  30s") + 14;
 		else if (element == SCOREBOARD) rawWidth = scoreboardLayout(0, 0, font, true).width;
 		else if (element == BOSSBAR) rawWidth = 182;
+		else if (element == BOSS_WARNING) {
+			String liveLabel = BossWarning.getLiveLabel();
+			rawWidth = font.width(liveLabel == null ? BossWarning.getPreviewLabel() : liveLabel) + 12;
+		}
 		else rawWidth = lines(element, true).stream().mapToInt(font::width).max().orElse(0) + 10;
 		return (int) Math.ceil(rawWidth * effectiveScale(element));
 	}
@@ -87,15 +92,16 @@ public final class WinterHud {
 		else if (element == POWERUP_TIMER) rawHeight = TIMER_ROW_HEIGHT * 3 + 8;
 		else if (element == SCOREBOARD) rawHeight = scoreboardLayout(0, 0, font, true).height;
 		else if (element == BOSSBAR) rawHeight = bossbarHeight(true);
+		else if (element == BOSS_WARNING) rawHeight = Minecraft.getInstance().font.lineHeight + 10;
 		else rawHeight = lines(element, true).size() * (font.lineHeight + 1) + 6;
 		return (int) Math.ceil(rawHeight * effectiveScale(element));
 	}
 	public static int getScreenX(int element, int screenWidth, Font font) {
-		if (element >= SCOREBOARD && !POSITION_SET[element]) return nativeBounds(element, screenWidth, 0, font).x;
+		if (isNativeElement(element) && !POSITION_SET[element]) return nativeBounds(element, screenWidth, 0, font).x;
 		return (int) Math.round(X[element] * Math.max(0, screenWidth - getWidth(element, font)));
 	}
 	public static int getScreenY(int element, int screenHeight, Font font) {
-		if (element >= SCOREBOARD && !POSITION_SET[element]) return nativeBounds(element, 0, screenHeight, font).y;
+		if (isNativeElement(element) && !POSITION_SET[element]) return nativeBounds(element, 0, screenHeight, font).y;
 		return (int) Math.round(Y[element] * Math.max(0, screenHeight - getHeight(element, font)));
 	}
 	public static int getEditorScreenY(int element, int screenHeight, Font font) {
@@ -104,7 +110,7 @@ public final class WinterHud {
 	}
 
 	public static void beginNativeElement(GuiGraphics graphics, int element) {
-		if (element < SCOREBOARD) return;
+		if (!isNativeElement(element)) return;
 		var bounds = nativeBounds(element, graphics.guiWidth(), graphics.guiHeight(), Minecraft.getInstance().font);
 		float scale = (float) ELEMENT_SCALE[element];
 		int x = POSITION_SET[element] ? getScreenX(element, graphics.guiWidth(), Minecraft.getInstance().font) : bounds.x;
@@ -115,8 +121,10 @@ public final class WinterHud {
 	}
 
 	public static void endNativeElement(GuiGraphics graphics, int element) {
-		if (element >= SCOREBOARD) graphics.pose().popMatrix();
+		if (isNativeElement(element)) graphics.pose().popMatrix();
 	}
+
+	private static boolean isNativeElement(int element) { return element == SCOREBOARD || element == BOSSBAR; }
 
 	/** Draws a fixed sample of a HUD element on the editor canvas. */
 	public static void renderEditorPreview(GuiGraphics graphics, int element, int x, int y) {
@@ -161,6 +169,10 @@ public final class WinterHud {
 		if (watermarkEnabled) drawElement(graphics, WATERMARK,
 			getScreenX(WATERMARK, graphics.guiWidth(), minecraft.font),
 			getScreenY(WATERMARK, graphics.guiHeight(), minecraft.font), false);
+		String bossWarning = BossWarning.getLiveLabel();
+		if (bossWarning != null) drawElement(graphics, BOSS_WARNING,
+			getScreenX(BOSS_WARNING, graphics.guiWidth(), minecraft.font),
+			getScreenY(BOSS_WARNING, graphics.guiHeight(), minecraft.font), false);
 		if (!PowerupTracker.isEnabled() || minecraft.level == null || !TeamEsp.isZombiesGame(minecraft)) return;
 		if (PowerupTracker.isTimerEnabled() && !PowerupTracker.activeTimerRows().isEmpty()) drawElement(graphics, POWERUP_TIMER,
 			getScreenX(POWERUP_TIMER, graphics.guiWidth(), minecraft.font),
@@ -183,6 +195,14 @@ public final class WinterHud {
 		}
 		if (element == POWERUP_TIMER) {
 			drawTimer(graphics, minecraft.font, preview);
+		} else if (element == BOSS_WARNING) {
+			String label = preview ? BossWarning.getPreviewLabel() : BossWarning.getLiveLabel();
+			if (label != null) {
+				int width = minecraft.font.width(label) + 12;
+				graphics.fill(0, 0, width, minecraft.font.lineHeight + 10, 0x990A0D12);
+				graphics.fill(0, 0, 2, minecraft.font.lineHeight + 10, 0xFFFFB74D);
+				graphics.drawString(minecraft.font, label, 7, 5, 0xFFFFD27A, true);
+			}
 		} else {
 			List<String> content = lines(element, preview);
 			int width = rawWidth(element, minecraft.font);

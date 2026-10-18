@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.luxnet.winter.client.WinterConfig;
 import dev.luxnet.winter.client.mixin.KeyMappingAccessor;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
@@ -11,6 +12,8 @@ import org.lwjgl.glfw.GLFW;
 /** Repeatedly cycles between the configured hotbar slots using their normal key bindings. */
 public final class QuickSwap {
 	private static final int MOUSE_BIND_OFFSET = 1000;
+	private static final int[] SLOTS_2_3 = {1, 2};
+	private static final int[] SLOTS_2_3_4 = {1, 2, 3};
 	private static boolean enabled;
 	private static int delayMs = 250;
 	private static int jitterMs;
@@ -19,9 +22,9 @@ public final class QuickSwap {
 	private static int bindCode = GLFW.GLFW_KEY_UNKNOWN;
 	private static boolean bindWasDown;
 	private static boolean toggleActive;
-	private static int pendingSlot = -1;
+	private static int nextSlotIndex;
+	private static boolean slotSequenceStarted;
 	private static long nextSwapAt;
-	private static long pendingSince;
 	private static Object sequenceLevel;
 	private static Object sequenceConnection;
 	private static KeyMapping pendingRelease;
@@ -95,10 +98,11 @@ public final class QuickSwap {
 	}
 
 	public static void register() {
-		ClientTickEvents.END_CLIENT_TICK.register(QuickSwap::tick);
+		WorldRenderEvents.END_MAIN.register(context -> update(Minecraft.getInstance()));
+		ClientTickEvents.END_CLIENT_TICK.register(QuickSwap::cleanupIfUnavailable);
 	}
 
-	private static void tick(Minecraft minecraft) {
+	private static void update(Minecraft minecraft) {
 		releasePendingKey();
 		if (!enabled || minecraft.player == null || minecraft.level == null || minecraft.screen != null
 			|| minecraft.getConnection() == null) {
@@ -115,36 +119,43 @@ public final class QuickSwap {
 		bindWasDown = bindDown;
 		boolean active = activationMode == ActivationMode.HOLD ? bindDown : toggleActive;
 		if (!active) {
-			pendingSlot = -1;
+			slotSequenceStarted = false;
 			nextSwapAt = 0L;
 			return;
 		}
 
 		long now = System.nanoTime();
-		if (pendingSlot >= 0) {
-			if (minecraft.player.getInventory().getSelectedSlot() == pendingSlot) {
-				pendingSlot = -1;
-				nextSwapAt = now + nextDelayNanos();
-			} else if (now - pendingSince > 500_000_000L) {
-				pendingSlot = -1;
-				nextSwapAt = now + nextDelayNanos();
-			}
-			return;
+		int[] slots = slotsForMode();
+		if (!slotSequenceStarted) {
+			nextSlotIndex = findNextSlotIndex(slots, minecraft.player.getInventory().getSelectedSlot());
+			slotSequenceStarted = true;
+			nextSwapAt = now;
 		}
 		if (now < nextSwapAt) return;
+		queueTap(minecraft.options.keyHotbarSlots[slots[nextSlotIndex]]);
+		nextSlotIndex = (nextSlotIndex + 1) % slots.length;
+		nextSwapAt = now + nextDelayNanos();
+	}
 
-		int[] slots = slotMode == SlotMode.SLOTS_2_3 ? new int[] {1, 2} : new int[] {1, 2, 3};
-		int selected = minecraft.player.getInventory().getSelectedSlot();
-		int next = slots[0];
-		for (int i = 0; i < slots.length; i++) {
-			if (slots[i] == selected) {
-				next = slots[(i + 1) % slots.length];
-				break;
-			}
+	private static void cleanupIfUnavailable(Minecraft minecraft) {
+		releasePendingKey();
+		if (!enabled || minecraft.player == null || minecraft.level == null || minecraft.screen != null
+			|| minecraft.getConnection() == null) {
+			bindWasDown = isBindDown(minecraft);
+			slotSequenceStarted = false;
+			nextSwapAt = 0L;
 		}
-		pendingSlot = next;
-		pendingSince = now;
-		queueTap(minecraft.options.keyHotbarSlots[next]);
+	}
+
+	private static int[] slotsForMode() {
+		return slotMode == SlotMode.SLOTS_2_3 ? SLOTS_2_3 : SLOTS_2_3_4;
+	}
+
+	private static int findNextSlotIndex(int[] slots, int selectedSlot) {
+		for (int i = 0; i < slots.length; i++) {
+			if (slots[i] == selectedSlot) return (i + 1) % slots.length;
+		}
+		return 0;
 	}
 
 	private static boolean isBindDown(Minecraft minecraft) {
@@ -178,14 +189,14 @@ public final class QuickSwap {
 
 	private static void cancel(Minecraft minecraft) {
 		releasePendingKey();
-		pendingSlot = -1;
+		slotSequenceStarted = false;
 		sequenceLevel = minecraft.level;
 		sequenceConnection = minecraft.getConnection();
 		nextSwapAt = 0L;
 	}
 
 	private static void resetSequence(Minecraft minecraft) {
-		pendingSlot = -1;
+		slotSequenceStarted = false;
 		sequenceLevel = minecraft.level;
 		sequenceConnection = minecraft.getConnection();
 		nextSwapAt = System.nanoTime();
